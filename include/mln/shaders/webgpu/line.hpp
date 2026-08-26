@@ -461,6 +461,7 @@ struct VertexOutput {
     @location(5) v_opacity: f32,
     @location(6) v_pattern_from: vec4<f32>,
     @location(7) v_pattern_to: vec4<f32>,
+    @location(8) v_floorwidth: f32,
 };
 
 struct LinePatternDrawableUBO {
@@ -611,6 +612,7 @@ fn main(in: VertexInput) -> VertexOutput {
     out.v_opacity = opacity;
     out.v_pattern_from = pattern_from;
     out.v_pattern_to = pattern_to;
+    out.v_floorwidth = props.floorwidth;
 
     return out;
 }
@@ -626,6 +628,7 @@ struct FragmentInput {
     @location(5) v_opacity: f32,
     @location(6) v_pattern_from: vec4<f32>,
     @location(7) v_pattern_to: vec4<f32>,
+    @location(8) v_floorwidth: f32,
 };
 
 struct GlobalPaintParamsUBO {
@@ -695,6 +698,10 @@ fn main(in: FragmentInput) -> @location(0) vec4<f32> {
     let pattern_size_a = vec2<f32>(display_size_a.x * fromScale / tileZoomRatio, display_size_a.y);
     let pattern_size_b = vec2<f32>(display_size_b.x * toScale / tileZoomRatio, display_size_b.y);
 
+    let floorwidth = max(in.v_floorwidth, 1e-6);
+    let aspect_a = display_size_a.y / floorwidth;
+    let aspect_b = display_size_b.y / floorwidth;
+
     let dist = length(in.v_normal) * in.v_width2.x;
     let blur = in.v_blur;
     let opacity = in.v_opacity;
@@ -704,20 +711,18 @@ fn main(in: FragmentInput) -> @location(0) vec4<f32> {
 
     let patternSizeAX = max(pattern_size_a.x, 1e-6);
     let patternSizeBX = max(pattern_size_b.x, 1e-6);
-    let patternSizeAY = max(pattern_size_a.y, 1e-6);
-    let patternSizeBY = max(pattern_size_b.y, 1e-6);
 
-    let x_a = glMod(in.v_linesofar / patternSizeAX, 1.0);
-    let x_b = glMod(in.v_linesofar / patternSizeBX, 1.0);
+    let x_a = glMod(in.v_linesofar / patternSizeAX * aspect_a, 1.0);
+    let x_b = glMod(in.v_linesofar / patternSizeBX * aspect_b, 1.0);
 
-    let clampedA = clamp(in.v_width2.x, 0.0, (pattern_size_a.y + 2.0) * 0.5);
-    let clampedB = clamp(in.v_width2.x, 0.0, (pattern_size_b.y + 2.0) * 0.5);
+    let y = 0.5 * in.v_normal.y + 0.5;
 
-    let y_a = clamp(0.5 + (in.v_normal.y * clampedA / patternSizeAY), 0.0, 1.0);
-    let y_b = clamp(0.5 + (in.v_normal.y * clampedB / patternSizeBY), 0.0, 1.0);
-
-    let pos_a = mix(pattern_tl_a / tileProps.texsize, pattern_br_a / tileProps.texsize, vec2<f32>(x_a, y_a));
-    let pos_b = mix(pattern_tl_b / tileProps.texsize, pattern_br_b / tileProps.texsize, vec2<f32>(x_b, y_b));
+    let texel_size = 1.0 / tileProps.texsize;
+    let half_texel = 0.5 * texel_size;
+    var pos_a = mix(pattern_tl_a * texel_size - texel_size, pattern_br_a * texel_size + texel_size, vec2<f32>(x_a, y));
+    pos_a = clamp(pos_a, (pattern_tl_a - 1.0) * texel_size + half_texel, (pattern_br_a + 1.0) * texel_size - half_texel);
+    var pos_b = mix(pattern_tl_b * texel_size - texel_size, pattern_br_b * texel_size + texel_size, vec2<f32>(x_b, y));
+    pos_b = clamp(pos_b, (pattern_tl_b - 1.0) * texel_size + half_texel, (pattern_br_b + 1.0) * texel_size - half_texel);
 
     let color_a = textureSample(pattern_texture, pattern_sampler, pos_a);
     let color_b = textureSample(pattern_texture, pattern_sampler, pos_b);

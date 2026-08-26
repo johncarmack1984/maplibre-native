@@ -727,6 +727,9 @@ half4 fragment fragmentMain(FragmentStage in [[stage_in]],
     const float2 pattern_size_a = float2(display_size_a.x * fromScale / tileZoomRatio, display_size_a.y);
     const float2 pattern_size_b = float2(display_size_b.x * toScale / tileZoomRatio, display_size_b.y);
 
+    const float aspect_a = display_size_a.y / props.floorwidth;
+    const float aspect_b = display_size_b.y / props.floorwidth;
+
     // Calculate the distance of the pixel from the line in pixels.
     const float dist = length(in.normal) * in.width2.x;
 
@@ -736,18 +739,17 @@ half4 fragment fragmentMain(FragmentStage in [[stage_in]],
     const float blur2 = (blur + 1.0 / DEVICE_PIXEL_RATIO) * in.gamma_scale;
     const float alpha = clamp(min(dist - (in.width2.y - blur2), in.width2.x - dist) / blur2, 0.0, 1.0);
 
-    const float x_a = glMod(in.linesofar / pattern_size_a.x, 1.0);
-    const float x_b = glMod(in.linesofar / pattern_size_b.x, 1.0);
+    const float x_a = glMod(in.linesofar / pattern_size_a.x * aspect_a, 1.0);
+    const float x_b = glMod(in.linesofar / pattern_size_b.x * aspect_b, 1.0);
 
-    // in.normal.y is 0 at the midpoint of the line, -1 at the lower edge, 1 at the upper edge
-    // we clamp the line width outset to be between 0 and half the pattern height plus padding (2.0)
-    // to ensure we don't sample outside the designated symbol on the sprite sheet.
-    // 0.5 is added to shift the component to be bounded between 0 and 1 for interpolation of
-    // the texture coordinate
-    const float y_a = 0.5 + (in.normal.y * clamp(in.width2.x, 0.0, (pattern_size_a.y + 2.0) / 2.0) / pattern_size_a.y);
-    const float y_b = 0.5 + (in.normal.y * clamp(in.width2.x, 0.0, (pattern_size_b.y + 2.0) / 2.0) / pattern_size_b.y);
-    const float2 pos_a = mix(pattern_tl_a / tileProps.texsize, pattern_br_a / tileProps.texsize, float2(x_a, y_a));
-    const float2 pos_b = mix(pattern_tl_b / tileProps.texsize, pattern_br_b / tileProps.texsize, float2(x_b, y_b));
+    const float y = 0.5 * in.normal.y + 0.5;
+
+    const float2 texel_size = 1.0 / tileProps.texsize;
+    const float2 half_texel = 0.5 * texel_size;
+    float2 pos_a = mix(pattern_tl_a * texel_size - texel_size, pattern_br_a * texel_size + texel_size, float2(x_a, y));
+    pos_a = clamp(pos_a, (pattern_tl_a - 1.0) * texel_size + half_texel, (pattern_br_a + 1.0) * texel_size - half_texel);
+    float2 pos_b = mix(pattern_tl_b * texel_size - texel_size, pattern_br_b * texel_size + texel_size, float2(x_b, y));
+    pos_b = clamp(pos_b, (pattern_tl_b - 1.0) * texel_size + half_texel, (pattern_br_b + 1.0) * texel_size - half_texel);
 
     const float4 color = mix(image0.sample(image0_sampler, pos_a), image0.sample(image0_sampler, pos_b), tileProps.fade);
 
