@@ -141,6 +141,25 @@ HeadlessBackend::HeadlessBackend(Size size_, SwapBehaviour swapBehaviour_, gfx::
     // Create device descriptor
     wgpu::DeviceDescriptor deviceDesc = {};
     deviceDesc.label = "MapLibre Headless WebGPU Device";
+    deviceDesc.SetUncapturedErrorCallback([](const wgpu::Device&, wgpu::ErrorType type, wgpu::StringView message) {
+        const char* kind = "error";
+        switch (type) {
+            case wgpu::ErrorType::Validation:
+                kind = "validation error";
+                break;
+            case wgpu::ErrorType::OutOfMemory:
+                kind = "out of memory";
+                break;
+            case wgpu::ErrorType::Internal:
+                kind = "internal error";
+                break;
+            default:
+                break;
+        }
+        Log::Error(Event::Render,
+                   std::string("Dawn ") + kind + ": " +
+                       (message.data ? std::string(message.data, message.length) : std::string()));
+    });
 
     // Create device
     WGPUDevice rawDevice = selectedAdapter.CreateDevice(&deviceDesc);
