@@ -11,11 +11,8 @@ namespace mtl {
 
 class OffscreenTextureResource final : public RenderableResource {
 public:
-    OffscreenTextureResource(Context& context_,
-                             const Size size_,
-                             const gfx::TextureChannelDataType type_,
-                             bool depth,
-                             [[maybe_unused]] bool stencil)
+    OffscreenTextureResource(
+        Context& context_, const Size size_, const gfx::TextureChannelDataType type_, bool depth, bool stencil)
         : context(context_),
           size(size_),
           type(type_) {
@@ -40,8 +37,21 @@ public:
                 ->setUsage(MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite | MTL::TextureUsageRenderTarget);
         }
 
-        // On iOS simulator, the depth target is PixelFormatDepth32Float_Stencil8
-#if !TARGET_OS_SIMULATOR
+#if TARGET_OS_SIMULATOR || defined(__x86_64__)
+        // The depth target is the combined Depth32Float_Stencil8 format here; it is bound as the stencil attachment
+        // too.
+        if (stencil) {
+            if (!depthTexture) {
+                depthTexture = context.createTexture2D();
+                depthTexture->setSize(size);
+                depthTexture->setFormat(gfx::TexturePixelType::Depth, gfx::TextureChannelDataType::Float);
+                static_cast<Texture2D*>(depthTexture.get())
+                    ->setUsage(MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite |
+                               MTL::TextureUsageRenderTarget);
+            }
+            stencilOnDepthTexture = true;
+        }
+#else
         if (stencil) {
             stencilTexture = context.createTexture2D();
             stencilTexture->setSize(size);
@@ -79,6 +89,11 @@ public:
             stencilTexture->create();
             if (auto* stencilTarget = renderPassDescriptor->stencilAttachment()) {
                 stencilTarget->setTexture(static_cast<Texture2D*>(stencilTexture.get())->getMetalTexture());
+            }
+        }
+        if (stencilOnDepthTexture) {
+            if (auto* stencilTarget = renderPassDescriptor->stencilAttachment()) {
+                stencilTarget->setTexture(static_cast<Texture2D*>(depthTexture.get())->getMetalTexture());
             }
         }
     }
@@ -128,6 +143,7 @@ private:
     gfx::Texture2DPtr colorTexture;
     gfx::Texture2DPtr depthTexture;
     gfx::Texture2DPtr stencilTexture;
+    bool stencilOnDepthTexture = false;
     MTLCommandBufferPtr commandBuffer;
     MTLRenderPassDescriptorPtr renderPassDescriptor;
 };
