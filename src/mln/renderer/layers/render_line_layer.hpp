@@ -63,6 +63,7 @@ private:
     gfx::ShaderGroupPtr lineShaderGroup;
     gfx::ShaderGroupPtr lineGradientShaderGroup;
     gfx::ShaderGroupPtr lineSDFShaderGroup;
+    gfx::ShaderGroupPtr lineGradientSDFShaderGroup;
     gfx::ShaderGroupPtr linePatternShaderGroup;
 };
 
