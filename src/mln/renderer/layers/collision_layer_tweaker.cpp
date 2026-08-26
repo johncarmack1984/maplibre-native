@@ -51,19 +51,15 @@ void CollisionLayerTweaker::execute(LayerGroupBase& layerGroup, const PaintParam
         const auto matrix = getTileMatrix(
             tileID, parameters, translate, anchor, nearClipped, inViewportPixelUnits, drawable);
 
-        // extrude scale
-        const auto pixelRatio = tileID.pixelsToTileUnits(1.0f, static_cast<float>(parameters.state.getZoom()));
-        const auto scale = static_cast<float>(
-            std::pow(2, parameters.state.getZoom() - drawable.getTileID()->overscaledZ));
-        const std::array<float, 2> extrudeScale = {{parameters.pixelsToGLUnits[0] / (pixelRatio * scale),
-                                                    parameters.pixelsToGLUnits[1] / (pixelRatio * scale)}};
+        // The collision index measures boxes and circles in viewport pixels, so the shaders
+        // only need the pixel size of the viewport to place them.
+        const auto size = parameters.state.getSize();
+        const std::array<float, 2> pixelExtrudeScale = {
+            {1.0f / static_cast<float>(size.width), 1.0f / static_cast<float>(size.height)}};
 
         const CollisionDrawableUBO drawableUBO = {/* .matrix = */ util::cast<float>(matrix)};
 
-        const CollisionTilePropsUBO tilePropsUBO = {
-            .extrude_scale = extrudeScale,
-            .overscale_factor = static_cast<float>(drawable.getTileID()->overscaleFactor()),
-            .pad1 = 0};
+        const CollisionTilePropsUBO tilePropsUBO = {.pixel_extrude_scale = pixelExtrudeScale, .pad1 = 0, .pad2 = 0};
 
         auto& drawableUniforms = drawable.mutableUniformBuffers();
         drawableUniforms.createOrUpdate(idCollisionDrawableUBO, &drawableUBO, context);

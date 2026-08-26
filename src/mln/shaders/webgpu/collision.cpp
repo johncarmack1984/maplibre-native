@@ -10,12 +10,10 @@ namespace shaders {
 
 using CollisionBoxShaderSource = ShaderSource<BuiltIn::CollisionBoxShader, gfx::Backend::Type::WebGPU>;
 
-const std::array<AttributeInfo, 5> CollisionBoxShaderSource::attributes = {
+const std::array<AttributeInfo, 3> CollisionBoxShaderSource::attributes = {
     AttributeInfo{3, gfx::AttributeDataType::Short2, idCollisionPosVertexAttribute},
-    AttributeInfo{4, gfx::AttributeDataType::Short2, idCollisionAnchorPosVertexAttribute},
-    AttributeInfo{5, gfx::AttributeDataType::Short2, idCollisionExtrudeVertexAttribute},
-    AttributeInfo{6, gfx::AttributeDataType::UShort2, idCollisionPlacedVertexAttribute},
-    AttributeInfo{7, gfx::AttributeDataType::Float2, idCollisionShiftVertexAttribute},
+    AttributeInfo{4, gfx::AttributeDataType::UShort2, idCollisionPlacedVertexAttribute},
+    AttributeInfo{5, gfx::AttributeDataType::Float3, idCollisionMeasuredBoxVertexAttribute},
 };
 const std::array<TextureInfo, 0> CollisionBoxShaderSource::textures = {};
 
@@ -26,9 +24,9 @@ using CollisionCircleShaderSource = ShaderSource<BuiltIn::CollisionCircleShader,
 
 const std::array<AttributeInfo, 4> CollisionCircleShaderSource::attributes = {
     AttributeInfo{3, gfx::AttributeDataType::Short2, idCollisionPosVertexAttribute},
-    AttributeInfo{4, gfx::AttributeDataType::Short2, idCollisionAnchorPosVertexAttribute},
-    AttributeInfo{5, gfx::AttributeDataType::Short2, idCollisionExtrudeVertexAttribute},
-    AttributeInfo{6, gfx::AttributeDataType::UShort2, idCollisionPlacedVertexAttribute},
+    AttributeInfo{4, gfx::AttributeDataType::Short2, idCollisionExtrudeVertexAttribute},
+    AttributeInfo{5, gfx::AttributeDataType::UShort2, idCollisionPlacedVertexAttribute},
+    AttributeInfo{6, gfx::AttributeDataType::Float3, idCollisionMeasuredBoxVertexAttribute},
 };
 const std::array<TextureInfo, 0> CollisionCircleShaderSource::textures = {};
 

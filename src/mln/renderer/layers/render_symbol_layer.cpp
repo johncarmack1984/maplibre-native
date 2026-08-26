@@ -356,16 +356,9 @@ gfx::VertexAttributeArrayPtr getCollisionVertexAttributes(gfx::Context& context,
                                sizeof(LayoutVertex),
                                gfx::AttributeDataType::Short2);
     }
-    if (const auto& attr = vertexAttrs->set(idCollisionAnchorPosVertexAttribute)) {
-        attr->setSharedRawData(buffer.sharedVertices,
-                               offsetof(LayoutVertex, a2),
-                               /*vertexOffset=*/0,
-                               sizeof(LayoutVertex),
-                               gfx::AttributeDataType::Short2);
-    }
     if (const auto& attr = vertexAttrs->set(idCollisionExtrudeVertexAttribute)) {
         attr->setSharedRawData(buffer.sharedVertices,
-                               offsetof(LayoutVertex, a3),
+                               offsetof(LayoutVertex, a2),
                                /*vertexOffset=*/0,
                                sizeof(LayoutVertex),
                                gfx::AttributeDataType::Short2);
@@ -380,12 +373,12 @@ gfx::VertexAttributeArrayPtr getCollisionVertexAttributes(gfx::Context& context,
                                sizeof(DynamicVertex),
                                gfx::AttributeDataType::UShort2);
     }
-    if (const auto& attr = vertexAttrs->set(idCollisionShiftVertexAttribute)) {
+    if (const auto& attr = vertexAttrs->set(idCollisionMeasuredBoxVertexAttribute)) {
         attr->setSharedRawData(buffer.sharedDynamicVertices,
                                offsetof(DynamicVertex, a2),
                                /*vertexOffset=*/0,
                                sizeof(DynamicVertex),
-                               gfx::AttributeDataType::Float2);
+                               gfx::AttributeDataType::Float3);
     }
 
     return vertexAttrs;

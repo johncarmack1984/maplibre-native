@@ -62,6 +62,9 @@ public:
 
     CollisionBoundaries projectTileBoundaries(const mat4& posMatrix) const;
 
+    /// Viewport position, including the viewport padding, of a tile-space point.
+    Point<float> projectPoint(const mat4& posMatrix, const Point<float>& point) const;
+
     const TransformState& getTransformState() const { return transformState; }
 
     float getViewportPadding() const { return viewportPadding; }
@@ -97,7 +100,6 @@ private:
     std::pair<float, float> projectAnchor(const mat4& posMatrix, const Point<float>& point) const;
     std::pair<Point<float>, float> projectAndGetPerspectiveRatio(const mat4& posMatrix,
                                                                  const Point<float>& point) const;
-    Point<float> projectPoint(const mat4& posMatrix, const Point<float>& point) const;
     CollisionBoundaries getProjectedCollisionBoundaries(const mat4& posMatrix,
                                                         Point<float> shift,
                                                         float textPixelRatio,

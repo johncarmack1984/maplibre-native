@@ -26,8 +26,10 @@ using SymbolLayoutVertex =
 using SymbolDynamicLayoutAttributes = TypeList<attributes::projected_pos>;
 using SymbolOpacityAttributes = TypeList<attributes::fade_opacity>;
 
-using CollisionBoxLayoutAttributes = TypeList<attributes::pos, attributes::anchor_pos, attributes::extrude>;
-using CollisionBoxDynamicAttributes = TypeList<attributes::placed, attributes::shift>;
+using CollisionBoxLayoutAttributes = TypeList<attributes::pos, attributes::extrude>;
+// placed/notUsed flags plus the box the CollisionIndex measured for this symbol: xy is the
+// viewport-pixel offset of this vertex' box corner from the projected anchor, z the circle radius.
+using CollisionBoxDynamicAttributes = TypeList<attributes::placed, attributes::measured_box>;
 
 const uint16_t MAX_GLYPH_ICON_SIZE = 255;
 const uint16_t SIZE_PACK_FACTOR = 128;
@@ -422,18 +424,17 @@ public:
         return *textCollisionCircle;
     }
 
-    static gfx::Vertex<CollisionBoxLayoutAttributes> collisionLayoutVertex(Point<float> a,
-                                                                           Point<float> anchor,
-                                                                           Point<float> o) {
+    static gfx::Vertex<CollisionBoxLayoutAttributes> collisionLayoutVertex(Point<float> a, Point<float> o) {
         return {{{static_cast<int16_t>(a.x), static_cast<int16_t>(a.y)}},
-                {{static_cast<int16_t>(anchor.x), static_cast<int16_t>(anchor.y)}},
                 {{static_cast<int16_t>(::round(o.x)), static_cast<int16_t>(::round(o.y))}}};
     }
 
     static gfx::Vertex<CollisionBoxDynamicAttributes> collisionDynamicVertex(bool placed,
                                                                              bool notUsed,
-                                                                             Point<float> shift) {
-        return {{{static_cast<uint16_t>(placed), static_cast<uint16_t>(notUsed)}}, {{shift.x, shift.y}}};
+                                                                             Point<float> boxOffset,
+                                                                             float radius = 0.0f) {
+        return {{{static_cast<uint16_t>(placed), static_cast<uint16_t>(notUsed)}},
+                {{boxOffset.x, boxOffset.y, radius}}};
     }
 
     const float tilePixelRatio;

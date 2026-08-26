@@ -10,6 +10,7 @@
 #include <mln/util/instrumentation.hpp>
 #include <mln/util/math.hpp>
 
+#include <cmath>
 #include <list>
 #include <utility>
 
@@ -342,6 +343,7 @@ JointPlacement Placement::placeSymbol(const SymbolInstance& symbolInstance, cons
                                                                  ctx.avoidEdges,
                                                                  collisionGroup.second,
                                                                  textBoxes);
+                recordCollisionBox(collisionFeature, posMatrix, textBoxes);
                 if (placedFeature.first) {
                     placedOrientations.emplace(symbolInstance.getCrossTileID(), orientation);
                 }
@@ -489,6 +491,7 @@ JointPlacement Placement::placeSymbol(const SymbolInstance& symbolInstance, cons
                     }
                 }
 
+                recordCollisionBox(textCollisionFeature, posMatrix, textBoxes);
                 return placedFeature;
             };
 
@@ -537,20 +540,22 @@ JointPlacement Placement::placeSymbol(const SymbolInstance& symbolInstance, cons
         const PlacedSymbol& placedSymbol = iconBuffer.placedSymbols.at(*symbolInstance.getPlacedIconIndex());
         const float fontSize = evaluateSizeForFeature(ctx.partiallyEvaluatedIconSize, placedSymbol);
         const auto& placeIconFeature = [&](const CollisionFeature& collisionFeature) {
-            return collisionIndex.placeFeature(collisionFeature,
-                                               shift,
-                                               posMatrix,
-                                               ctx.iconLabelPlaneMatrix,
-                                               ctx.pixelRatio,
-                                               placedSymbol,
-                                               ctx.scale,
-                                               fontSize,
-                                               ctx.iconAllowOverlap,
-                                               ctx.pitchTextWithMap,
-                                               showCollisionBoxes,
-                                               ctx.avoidEdges,
-                                               collisionGroup.second,
-                                               iconBoxes);
+            const auto placedFeature = collisionIndex.placeFeature(collisionFeature,
+                                                                   shift,
+                                                                   posMatrix,
+                                                                   ctx.iconLabelPlaneMatrix,
+                                                                   ctx.pixelRatio,
+                                                                   placedSymbol,
+                                                                   ctx.scale,
+                                                                   fontSize,
+                                                                   ctx.iconAllowOverlap,
+                                                                   ctx.pitchTextWithMap,
+                                                                   showCollisionBoxes,
+                                                                   ctx.avoidEdges,
+                                                                   collisionGroup.second,
+                                                                   iconBoxes);
+            recordCollisionBox(collisionFeature, posMatrix, iconBoxes);
+            return placedFeature;
         };
 
         std::pair<bool, bool> placedIcon;
@@ -959,6 +964,26 @@ bool Placement::updateBucketDynamicVertices(SymbolBucket& bucket,
     return result;
 }
 
+void Placement::recordCollisionBox(const CollisionFeature& feature,
+                                   const mat4& posMatrix,
+                                   const std::vector<ProjectedCollisionBox>& projectedBoxes) {
+    if (!showCollisionBoxes || feature.alongLine || feature.boxes.empty() || projectedBoxes.empty() ||
+        !projectedBoxes.front().isBox()) {
+        return;
+    }
+    // The debug vertices carry the anchor truncated to tile units, so project the same point the
+    // shader will, and store the box relative to it: the drawable matrix, not the collision index,
+    // is what applies *-translate.
+    const auto& boxAnchor = feature.boxes.front().anchor;
+    const auto anchor = collisionIndex.projectPoint(
+        posMatrix,
+        {static_cast<float>(static_cast<int16_t>(boxAnchor.x)), static_cast<float>(static_cast<int16_t>(boxAnchor.y))});
+    const auto& box = projectedBoxes.front().box();
+    collisionBoxes.insert_or_assign(&feature,
+                                    mapbox::geometry::box<float>{{box.min.x - anchor.x, box.min.y - anchor.y},
+                                                                 {box.max.x - anchor.x, box.max.y - anchor.y}});
+}
+
 void Placement::updateBucketOpacities(SymbolBucket& bucket,
                                       const TransformState& state,
                                       std::set<uint32_t>& seenCrossTileIDs) const {
@@ -975,9 +1000,6 @@ void Placement::updateBucketOpacities(SymbolBucket& bucket,
     const bool textAllowOverlap = bucket.layout->get<style::TextAllowOverlap>();
     const bool iconAllowOverlap = bucket.layout->get<style::IconAllowOverlap>();
     const bool variablePlacement = bucket.hasVariableTextAnchors();
-    const bool rotateWithMap = bucket.layout->get<style::TextRotationAlignment>() == style::AlignmentType::Map;
-    const bool pitchWithMap = bucket.layout->get<style::TextPitchAlignment>() == style::AlignmentType::Map;
-    const bool hasIconTextFit = bucket.layout->get<style::IconTextFit>() != style::IconTextFitType::None;
     const bool screenSpace = bucket.layout->get<style::SymbolScreenSpace>();
 
     // If allow-overlap is true, we can show symbols before placement runs on them
@@ -1074,87 +1096,73 @@ void Placement::updateBucketOpacities(SymbolBucket& bucket,
             iconBuffer.opacityVertices().extend(iconOpacityVerticesSize, opacityVertex);
         }
 
-        auto updateIconCollisionBox = [&](const auto& feature, const bool placed, const Point<float>& shift) {
+        // Push the corners of the box the collision index measured for this feature, in the order
+        // the debug buffers were built: top left, top right, bottom right, bottom left.
+        auto updateCollisionBox = [this](auto& buffer, const auto& feature, const bool placed, const bool used) {
             if (feature.alongLine) {
                 return;
             }
-            const auto& dynamicVertex = SymbolBucket::collisionDynamicVertex(placed, false, shift);
-            bucket.iconCollisionBox->dynamicVertices().extend(feature.boxes.size() * 4, dynamicVertex);
+            mapbox::geometry::box<float> box({0.0f, 0.0f}, {0.0f, 0.0f});
+            const auto measured = collisionBoxes.find(&feature);
+            const bool haveBox = measured != collisionBoxes.end();
+            if (haveBox) {
+                box = measured->second;
+            }
+            const bool notUsed = !used || !haveBox;
+            for (std::size_t i = 0; i < feature.boxes.size(); ++i) {
+                buffer.dynamicVertices().emplace_back(
+                    SymbolBucket::collisionDynamicVertex(placed, notUsed, {box.min.x, box.min.y}));
+                buffer.dynamicVertices().emplace_back(
+                    SymbolBucket::collisionDynamicVertex(placed, notUsed, {box.max.x, box.min.y}));
+                buffer.dynamicVertices().emplace_back(
+                    SymbolBucket::collisionDynamicVertex(placed, notUsed, {box.max.x, box.max.y}));
+                buffer.dynamicVertices().emplace_back(
+                    SymbolBucket::collisionDynamicVertex(placed, notUsed, {box.min.x, box.max.y}));
+            }
         };
 
-        auto updateTextCollisionBox =
-            [this, &bucket, &symbolInstance, &state, variablePlacement, rotateWithMap, pitchWithMap](
-                const auto& feature, const bool placed) {
-                Point<float> shift{0.0f, 0.0f};
-                if (feature.alongLine) {
-                    return shift;
-                }
-                bool used = true;
-                if (variablePlacement) {
-                    auto foundOffset = variableOffsets.find(symbolInstance.getCrossTileID());
-                    if (foundOffset != variableOffsets.end()) {
-                        const VariableOffset& variableOffset = foundOffset->second;
-                        // This will show either the currently placed position or
-                        // the last successfully placed position (so you can
-                        // visualize what collision just made the symbol disappear,
-                        // and the most likely place for the symbol to come back)
-                        shift = calculateVariableLayoutOffset(variableOffset.anchor,
-                                                              variableOffset.width,
-                                                              variableOffset.height,
-                                                              variableOffset.offset,
-                                                              variableOffset.textBoxScale,
-                                                              rotateWithMap,
-                                                              pitchWithMap,
-                                                              static_cast<float>(state.getBearing()));
-                    } else {
-                        // No offset -> this symbol hasn't been placed since coming
-                        // on-screen No single box is particularly meaningful and
-                        // all of them would be too noisy Use the center box just to
-                        // show something's there, but mark it "not used"
-                        used = false;
-                    }
-                }
-                const auto& dynamicVertex = SymbolBucket::collisionDynamicVertex(placed, !used, shift);
-                bucket.textCollisionBox->dynamicVertices().extend(feature.boxes.size() * 4, dynamicVertex);
-                return shift;
-            };
+        auto updateTextCollisionBox = [&](const auto& feature, const bool placed) {
+            // No offset -> this symbol hasn't been placed since coming on-screen. No single box is
+            // particularly meaningful and all of them would be too noisy, so mark it "not used".
+            const bool used = !variablePlacement || variableOffsets.contains(symbolInstance.getCrossTileID());
+            updateCollisionBox(*bucket.textCollisionBox, feature, placed, used);
+        };
 
         auto updateCollisionCircles = [&](const auto& feature, const bool placed, bool isText) {
             if (!feature.alongLine) {
                 return;
             }
+            auto& buffer = isText ? *bucket.textCollisionCircle : *bucket.iconCollisionCircle;
             auto circles = collisionCircles.find(&feature);
             if (circles != collisionCircles.end()) {
                 for (const auto& circle : circles->second) {
-                    const auto& dynamicVertex = SymbolBucket::collisionDynamicVertex(placed, !circle.isCircle(), {});
-                    isText ? bucket.textCollisionCircle->dynamicVertices().extend(4, dynamicVertex)
-                           : bucket.iconCollisionCircle->dynamicVertices().extend(4, dynamicVertex);
+                    // Circles the placement skipped collapse to nothing, as in GL JS, which only
+                    // uploads the circles it placed.
+                    const float radius = circle.isCircle() ? circle.circle().radius : 0.0f;
+                    buffer.dynamicVertices().extend(
+                        4, SymbolBucket::collisionDynamicVertex(placed, !circle.isCircle(), {}, radius));
                 }
             } else {
                 // This feature was not placed, because it was not loaded or
                 // from a fading tile. Apply default values.
-                static const auto dynamicVertex = SymbolBucket::collisionDynamicVertex(placed, false /*not used*/, {});
-                isText ? bucket.textCollisionCircle->dynamicVertices().extend(4 * feature.boxes.size(), dynamicVertex)
-                       : bucket.iconCollisionCircle->dynamicVertices().extend(4 * feature.boxes.size(), dynamicVertex);
+                buffer.dynamicVertices().extend(4 * feature.boxes.size(),
+                                                SymbolBucket::collisionDynamicVertex(placed, true /*not used*/, {}));
             }
         };
-        Point<float> textShift{0.0f, 0.0f};
-        Point<float> verticalTextShift{0.0f, 0.0f};
         if (bucket.hasTextCollisionBoxData()) {
-            textShift = updateTextCollisionBox(symbolInstance.getTextCollisionFeature(), opacityState.text.placed);
+            updateTextCollisionBox(symbolInstance.getTextCollisionFeature(), opacityState.text.placed);
             if (bucket.allowVerticalPlacement && symbolInstance.getVerticalTextCollisionFeature()) {
-                verticalTextShift = updateTextCollisionBox(*symbolInstance.getVerticalTextCollisionFeature(),
-                                                           opacityState.text.placed);
+                updateTextCollisionBox(*symbolInstance.getVerticalTextCollisionFeature(), opacityState.text.placed);
             }
         }
         if (bucket.hasIconCollisionBoxData()) {
-            updateIconCollisionBox(symbolInstance.getIconCollisionFeature(),
-                                   opacityState.icon.placed,
-                                   hasIconTextFit ? textShift : Point<float>{0.0f, 0.0f});
+            updateCollisionBox(
+                *bucket.iconCollisionBox, symbolInstance.getIconCollisionFeature(), opacityState.icon.placed, true);
             if (bucket.allowVerticalPlacement && symbolInstance.getVerticalIconCollisionFeature()) {
-                updateIconCollisionBox(*symbolInstance.getVerticalIconCollisionFeature(),
-                                       opacityState.text.placed,
-                                       hasIconTextFit ? verticalTextShift : Point<float>{0.0f, 0.0f});
+                updateCollisionBox(*bucket.iconCollisionBox,
+                                   *symbolInstance.getVerticalIconCollisionFeature(),
+                                   opacityState.text.placed,
+                                   true);
             }
         }
 

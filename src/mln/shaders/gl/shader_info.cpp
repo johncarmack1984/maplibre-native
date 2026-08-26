@@ -73,10 +73,8 @@ const std::vector<UniformBlockInfo> CollisionBoxShaderInfo::uniformBlocks = {
 };
 const std::vector<AttributeInfo> CollisionBoxShaderInfo::attributes = {
     AttributeInfo{"a_pos", idCollisionPosVertexAttribute},
-    AttributeInfo{"a_anchor_pos", idCollisionAnchorPosVertexAttribute},
-    AttributeInfo{"a_extrude", idCollisionExtrudeVertexAttribute},
     AttributeInfo{"a_placed", idCollisionPlacedVertexAttribute},
-    AttributeInfo{"a_shift", idCollisionShiftVertexAttribute},
+    AttributeInfo{"a_measured_box", idCollisionMeasuredBoxVertexAttribute},
 };
 const std::vector<TextureInfo> CollisionBoxShaderInfo::textures = {};
 
@@ -89,9 +87,9 @@ const std::vector<UniformBlockInfo> CollisionCircleShaderInfo::uniformBlocks = {
 };
 const std::vector<AttributeInfo> CollisionCircleShaderInfo::attributes = {
     AttributeInfo{"a_pos", idCollisionPosVertexAttribute},
-    AttributeInfo{"a_anchor_pos", idCollisionAnchorPosVertexAttribute},
     AttributeInfo{"a_extrude", idCollisionExtrudeVertexAttribute},
     AttributeInfo{"a_placed", idCollisionPlacedVertexAttribute},
+    AttributeInfo{"a_measured_box", idCollisionMeasuredBoxVertexAttribute},
 };
 const std::vector<TextureInfo> CollisionCircleShaderInfo::textures = {};
 

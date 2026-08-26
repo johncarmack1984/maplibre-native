@@ -1369,14 +1369,10 @@ void SymbolLayout::addToDebugBuffers(SymbolBucket& bucket) {
                 auto& segment = collisionBuffer.segments.back();
                 auto index = static_cast<uint16_t>(segment.vertexLength);
 
-                collisionBuffer.vertices().emplace_back(
-                    SymbolBucket::collisionLayoutVertex(anchor, symbolInstance.getAnchor().point, tl));
-                collisionBuffer.vertices().emplace_back(
-                    SymbolBucket::collisionLayoutVertex(anchor, symbolInstance.getAnchor().point, tr));
-                collisionBuffer.vertices().emplace_back(
-                    SymbolBucket::collisionLayoutVertex(anchor, symbolInstance.getAnchor().point, br));
-                collisionBuffer.vertices().emplace_back(
-                    SymbolBucket::collisionLayoutVertex(anchor, symbolInstance.getAnchor().point, bl));
+                collisionBuffer.vertices().emplace_back(SymbolBucket::collisionLayoutVertex(anchor, tl));
+                collisionBuffer.vertices().emplace_back(SymbolBucket::collisionLayoutVertex(anchor, tr));
+                collisionBuffer.vertices().emplace_back(SymbolBucket::collisionLayoutVertex(anchor, br));
+                collisionBuffer.vertices().emplace_back(SymbolBucket::collisionLayoutVertex(anchor, bl));
 
                 // Dynamic vertices are initialized so that the vertex count
                 // always agrees with the layout vertex buffer, but they will

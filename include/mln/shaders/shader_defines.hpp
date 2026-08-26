@@ -411,10 +411,9 @@ enum {
 
 enum {
     idCollisionPosVertexAttribute,
-    idCollisionAnchorPosVertexAttribute,
     idCollisionExtrudeVertexAttribute,
     idCollisionPlacedVertexAttribute,
-    idCollisionShiftVertexAttribute,
+    idCollisionMeasuredBoxVertexAttribute,
     collisionVertexAttributeCount
 };
 

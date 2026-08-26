@@ -178,6 +178,7 @@ protected:
                                const SymbolInstance&,
                                style::TextWritingModeType orientation) const;
     void markUsedOrientation(SymbolBucket&, style::TextWritingModeType, const SymbolInstance&) const;
+    void recordCollisionBox(const CollisionFeature&, const mat4& posMatrix, const std::vector<ProjectedCollisionBox>&);
     const Placement* getPrevPlacement() const { return prevPlacement ? prevPlacement->get() : nullptr; }
     bool isTiltedView() const;
 
@@ -206,6 +207,9 @@ protected:
     std::vector<ProjectedCollisionBox> iconBoxes;
     // Used for debug purposes.
     std::unordered_map<const CollisionFeature*, std::vector<ProjectedCollisionBox>> collisionCircles;
+    // Used for debug purposes: the box the collision index measured, in viewport pixels relative
+    // to the projected anchor.
+    std::unordered_map<const CollisionFeature*, mapbox::geometry::box<float>> collisionBoxes;
 };
 
 } // namespace mln
