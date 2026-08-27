@@ -311,15 +311,13 @@ void TransformState::updateStateFromCamera() {
     // Compute zoom level from the camera altitude
     const double centerDistance = getCameraToCenterDistance();
     double zoom;
-    double newScale;
     double travel;
     if (dz < -1.0e-9 && position[2] > 1.0e-9 && newPitch <= maxMercatorHorizonAngle) {
         zoom = util::log2(centerDistance / (position[2] / std::cos(newPitch) * util::tileSize_D));
-        newScale = util::clamp(std::pow(2.0, zoom), min_scale, max_scale);
         travel = -position[2] / dz;
     } else {
         zoom = 14;
-        newScale = util::clamp(std::pow(2.0, zoom), min_scale, max_scale);
+        const double newScale = util::clamp(std::pow(2.0, zoom), min_scale, max_scale);
         travel = centerDistance / newScale / util::tileSize_D;
     }
 
@@ -1152,8 +1150,16 @@ void TransformState::moveLatLng(const LatLng& latLng, const ScreenCoordinate& an
 }
 
 void TransformState::setLatLngZoom(const LatLng& latLng, double zoom) {
-    LatLng constrained = latLng;
-    constrained = bounds.constrain(latLng);
+    LatLng constrained = bounds.constrain(latLng);
+    // The globe's tile cover picks each tile's wrap from the center, so a center that jumped a whole world at the
+    // antimeridian would re-key every tile; keep it on the copy nearest the current one.
+    if (isGlobeRendering() && bounds == LatLngBounds()) {
+        const double current = getLatLng().longitude();
+        if (std::isfinite(current)) {
+            const double turns = std::round((current - constrained.longitude()) / util::DEGREES_MAX);
+            constrained = {constrained.latitude(), constrained.longitude() + turns * util::DEGREES_MAX};
+        }
+    }
 
     double newScale = util::clamp(zoomScale(zoom), zoomScale(getMinZoomAtLatitude(constrained.latitude())), max_scale);
     const double newWorldSize = newScale * util::tileSize_D;
