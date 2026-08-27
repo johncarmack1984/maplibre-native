@@ -1,0 +1,4 @@
+{
+    "render-tests/projection/globe/fill-grid": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
+    "render-tests/projection/globe/fill-grid-pitched": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525"
+}
