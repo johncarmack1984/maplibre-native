@@ -1,7 +1,16 @@
 #include <mln/util/subdivision.hpp>
 #include <mln/util/constants.hpp>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#endif
+
 #include <mapbox/earcut.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #include <algorithm>
 #include <array>
