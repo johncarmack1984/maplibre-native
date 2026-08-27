@@ -14,7 +14,6 @@
 #include <mln/gfx/cull_face_mode.hpp>
 #include <mln/gfx/drawable_builder.hpp>
 #include <mln/gfx/projection_variant.hpp>
-#include <mln/gl/drawable_gl.hpp>
 #include <mln/renderer/globe_tile_mesh.hpp>
 #include <mln/renderer/render_pass.hpp>
 #include <mln/renderer/render_static_data.hpp>
