@@ -14,10 +14,12 @@
 #include <mln/renderer/paint_parameters.hpp>
 #include <mln/renderer/render_pass.hpp>
 #include <mln/renderer/update_parameters.hpp>
+#include <mln/shaders/layer_ubo.hpp>
 #include <mln/shaders/shader_defines.hpp>
 #include <mln/util/tile_cover.hpp>
 
 #include <algorithm>
+#include <unordered_set>
 
 namespace mln {
 
@@ -25,6 +27,7 @@ namespace {
 
 constexpr std::string_view GlobeDepthShaderName = "GlobeDepthShader";
 
+#if !MLN_UBO_CONSOLIDATION
 class GlobeDepthTweaker : public gfx::DrawableTweaker {
 public:
     void init(gfx::Drawable&) override {}
@@ -38,14 +41,16 @@ public:
         drawable.mutableUniformBuffers().createOrUpdate(shaders::idProjectionUBO, &ubo, parameters.context);
     }
 };
+#endif
 
 } // namespace
 
 void GlobeDepthPass::update(gfx::ShaderRegistry& shaders,
                             gfx::Context& context,
                             const TransformState& state,
-                            const UpdateParameters& updateParameters) {
-    if (!state.isGlobeRendering()) {
+                            const UpdateParameters& updateParameters,
+                            bool needed) {
+    if (!state.isGlobeRendering() || !needed) {
         if (layerGroup) {
             layerGroup->clearDrawables();
         }
@@ -72,9 +77,9 @@ void GlobeDepthPass::update(gfx::ShaderRegistry& shaders,
                                            zoom,
                                            Range<uint8_t>(0, zoom));
 
-    layerGroup->removeDrawablesIf([&](gfx::Drawable& drawable) {
-        return drawable.getTileID() && (std::ranges::find(tileCover, *drawable.getTileID()) == tileCover.end());
-    });
+    const std::unordered_set<OverscaledTileID> covered(tileCover.begin(), tileCover.end());
+    layerGroup->removeDrawablesIf(
+        [&](gfx::Drawable& drawable) { return drawable.getTileID() && !covered.contains(*drawable.getTileID()); });
 
     std::unique_ptr<gfx::DrawableBuilder> builder;
     for (const auto& tileID : tileCover) {
@@ -91,12 +96,21 @@ void GlobeDepthPass::update(gfx::ShaderRegistry& shaders,
             builder->setDepthType(gfx::DepthMaskType::ReadWrite);
             builder->setCullFaceMode(gfx::CullFaceMode::backCCW());
             builder->setVertexAttrId(shaders::idGlobeDepthPosVertexAttribute);
+#if !MLN_UBO_CONSOLIDATION
             builder->addTweaker(std::make_shared<GlobeDepthTweaker>());
+#endif
         }
 
-        auto mesh = rawGlobeTileMesh(tileID.canonical, true);
-        builder->setRawVertices(std::move(mesh.vertices), mesh.vertexCount, gfx::AttributeDataType::Short2);
-        builder->setSegments(gfx::Triangles(), std::move(mesh.indices), mesh.segments.data(), mesh.segments.size());
+        // The grid depends only on the zoom and whether the tile touches a pole.
+        const auto& canonical = tileID.canonical;
+        const auto key = std::make_tuple(canonical.z, canonical.y == 0, canonical.y == (1u << canonical.z) - 1);
+        auto meshIt = meshes.find(key);
+        if (meshIt == meshes.end()) {
+            meshIt = meshes.emplace(key, rawGlobeTileMesh(canonical, true)).first;
+        }
+        const auto& mesh = meshIt->second;
+        builder->setRawVertices(std::vector(mesh.vertices), mesh.vertexCount, gfx::AttributeDataType::Short2);
+        builder->setSegments(gfx::Triangles(), mesh.indices, mesh.segments.data(), mesh.segments.size());
         builder->flush(context);
 
         for (auto& drawable : builder->clearDrawables()) {
@@ -104,6 +118,29 @@ void GlobeDepthPass::update(gfx::ShaderRegistry& shaders,
             layerGroup->addDrawable(RenderPass::Translucent, tileID, std::move(drawable));
         }
     }
+
+#if MLN_UBO_CONSOLIDATION
+    // The projection blocks live in one layer-level array, indexed like the other consolidated UBOs.
+    std::vector<shaders::ProjectionUBO> projectionUBOs;
+    projectionUBOs.reserve(layerGroup->getDrawableCount());
+    layerGroup->visitDrawables([&](gfx::Drawable& drawable) {
+        if (!drawable.getTileID()) {
+            return;
+        }
+        drawable.setUBOIndex(static_cast<int32_t>(projectionUBOs.size()));
+        projectionUBOs.push_back(
+            LayerTweaker::toProjectionUBO(state.getProjectionData(drawable.getTileID()->toUnwrapped())));
+    });
+    if (!projectionUBOs.empty()) {
+        const std::size_t size = sizeof(shaders::ProjectionUBO) * projectionUBOs.size();
+        if (!projectionUniformBuffer || projectionUniformBuffer->getSize() < size) {
+            projectionUniformBuffer = context.createUniformBuffer(projectionUBOs.data(), size, false, true);
+        } else {
+            projectionUniformBuffer->update(projectionUBOs.data(), size);
+        }
+        layerGroup->mutableUniformBuffers().set(shaders::idProjectionUBO, projectionUniformBuffer);
+    }
+#endif
 }
 
 } // namespace mln
