@@ -920,7 +920,7 @@ bool Context::renderGlobeTileClippingMasks(PaintParameters& parameters,
         if (it == globeClipMaskDrawables.end()) {
             auto builder = createDrawableBuilder("globe-clip-mask");
             builder->setShader(globeClipMaskShader);
-            builder->setRenderPass(RenderPass::Opaque);
+            builder->setRenderPass(mln::RenderPass::Opaque);
             builder->setEnableColor(false);
             builder->setEnableDepth(false);
             builder->setEnableStencil(false);
