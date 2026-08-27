@@ -2,10 +2,11 @@
   "version": 8,
   "metadata": {
     "test": {
-      "description": "Tests that raster tiles are not warped under globe projection. Exact way pixels get rasterized doesn't matter, but the pattern should not be tilted.",
-      "width": 512,
-      "height": 512
+      "description": "Tests that raster tiles are not warped under globe projection. Exact way pixels get rasterized doesn't matter, but the pattern should not be tilted. Native expectation: GL JS keeps eleven platform variants of this image because the square edges rasterize differently; the Metal render is within 0.16% of its expected-win-flaky9.png and differs from the others by single-pixel rows along those edges."
     }
+  },
+  "sky": {
+    "atmosphere-blend": 0.0
   },
   "center": [
     -178.59375,

@@ -1,5 +1,4 @@
 #include <mln/renderer/layers/render_hillshade_layer.hpp>
-#include <mln/renderer/globe_tile_mesh.hpp>
 
 #include <mln/renderer/buckets/hillshade_bucket.hpp>
 #include <mln/renderer/render_tile.hpp>

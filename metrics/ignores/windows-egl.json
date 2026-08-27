@@ -111,5 +111,6 @@
     "render-tests/projection/globe/raster-warped": "The globe expected images were rendered on Metal; this platform has no expectation of its own.",
     "render-tests/projection/globe/antimeridian-lod": "The globe expected images were rendered on Metal; this platform has no expectation of its own.",
     "render-tests/projection/globe/debug-tile-borders": "The globe expected images were rendered on Metal; this platform has no expectation of its own.",
-    "render-tests/projection/globe/fill-extrusion-translate": "The globe expected images were rendered on Metal; this platform has no expectation of its own."
+    "render-tests/projection/globe/fill-extrusion-translate": "The globe expected images were rendered on Metal; this platform has no expectation of its own.",
+    "render-tests/projection/globe/antimeridian-lod": "The globe expected images were rendered on Metal; this platform has no expectation of its own."
 }
