@@ -2916,6 +2916,22 @@ CLLocationCoordinate2D randomWorldCoordinate(void) {
   _localizingLabels = [[self bestLanguageForUser] isEqualToString:@"en"];
 }
 
+- (void)mapViewDidFailLoadingMap:(MLNMapView *)mapView withError:(NSError *)error {
+  if (self.presentedViewController) {
+    return;
+  }
+  NSString *msg = [NSString
+      stringWithFormat:@"%@\n\n%@", error.localizedDescription, mapView.styleURL.absoluteString];
+  UIAlertController *alertController =
+      [UIAlertController alertControllerWithTitle:@"Failed to Load Map"
+                                          message:msg
+                                   preferredStyle:UIAlertControllerStyleAlert];
+  [alertController addAction:[UIAlertAction actionWithTitle:@"Ok"
+                                                      style:UIAlertActionStyleCancel
+                                                    handler:nil]];
+  [self presentViewController:alertController animated:YES completion:nil];
+}
+
 - (BOOL)mapView:(MLNMapView *)mapView
     shouldChangeFromCamera:(MLNMapCamera *)oldCamera
                   toCamera:(MLNMapCamera *)newCamera {
