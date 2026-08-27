@@ -29,5 +29,7 @@
     "render-tests/projection/globe/text-pitched-rotated": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
     "render-tests/projection/globe/icon-text-translate-map": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
     "render-tests/projection/globe/icon-text-translate-viewport": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
-    "render-tests/projection/globe/text-line-equator": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525"
+    "render-tests/projection/globe/text-line-equator": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
+    "render-tests/projection/globe/line-spiral": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525",
+    "render-tests/projection/globe/line-dasharray": "globe rendering lands per backend after Metal; https://github.com/maplibre/maplibre-native/pull/4525"
 }
