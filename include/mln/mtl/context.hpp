@@ -112,6 +112,8 @@ public:
 
     void setDirtyState() override;
 
+    void releaseGlobeClipMasks() override;
+
     std::unique_ptr<gfx::OffscreenTexture> createOffscreenTexture(Size, gfx::TextureChannelDataType, bool, bool);
 
     std::unique_ptr<gfx::OffscreenTexture> createOffscreenTexture(Size, gfx::TextureChannelDataType) override;
@@ -148,15 +150,9 @@ public:
     /// Get a buffer to be bound to unused vertex buffers
     const UniqueVertexBufferResource& getEmptyVertexBuffer();
 
-    /// A globe clip mask: the tile's projection block, drawn over its pole-capped mesh.
-    struct GlobeClipMask {
-        shaders::ProjectionUBO projection;
-        uint32_t stencilRef;
-        CanonicalTileID tile;
-    };
     bool renderGlobeTileClippingMasks(gfx::RenderPass& renderPass,
                                       RenderStaticData& staticData,
-                                      const std::vector<GlobeClipMask>& masks);
+                                      const std::vector<shaders::GlobeClipMask>& masks);
 
     bool renderTileClippingMasks(gfx::RenderPass& renderPass,
                                  RenderStaticData& staticData,

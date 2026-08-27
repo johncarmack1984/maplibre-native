@@ -111,6 +111,8 @@ public:
 
     void setDirtyState() override {}
 
+    void releaseGlobeClipMasks() override;
+
     std::unique_ptr<gfx::OffscreenTexture> createOffscreenTexture(Size, gfx::TextureChannelDataType, bool, bool);
 
     std::unique_ptr<gfx::OffscreenTexture> createOffscreenTexture(Size, gfx::TextureChannelDataType) override;
@@ -141,6 +143,9 @@ public:
     /// Unbind the global uniform buffers
     void unbindGlobalUniformBuffers(gfx::RenderPass&) const noexcept override {}
 
+    bool renderGlobeTileClippingMasks(gfx::RenderPass& renderPass,
+                                      RenderStaticData& staticData,
+                                      const std::vector<shaders::GlobeClipMask>& masks);
     bool renderTileClippingMasks(gfx::RenderPass& renderPass,
                                  RenderStaticData& staticData,
                                  const std::vector<shaders::ClipUBO>& tileUBOs);

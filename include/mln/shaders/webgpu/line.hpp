@@ -156,15 +156,14 @@ fn main(in: VertexInput) -> VertexOutput {
 
     let projected_extrude = drawable.matrix * vec4<f32>(dist / ratio, 0.0, 0.0);
     let base = drawable.matrix * vec4<f32>(pos + offset2 / ratio, 0.0, 1.0);
+#endif
     let clip = base + projected_extrude;
 
-    let inv_w = 1.0 / clip.w;
-
-    out.position = clip;
+    out.position = base;
 
     let extrude_length_without_perspective = length(dist);
     let extrude_length_with_perspective =
-        length((projected_extrude.xy / clip.w) * paintParams.units_to_pixels);
+        length((projected_extrude.xy / base.w) * paintParams.units_to_pixels);
     let gamma_denom = max(extrude_length_with_perspective, 1e-6);
 
     out.v_width2 = vec2<f32>(outset, inset);
@@ -370,6 +369,7 @@ fn main(in: VertexInput) -> VertexOutput {
 
     let projected_extrude = drawable.matrix * vec4<f32>(dist / drawable.ratio, 0.0, 0.0);
     let position = drawable.matrix * vec4<f32>(pos + offset2 / drawable.ratio, 0.0, 1.0) + projected_extrude;
+#endif
 
     // Calculate gamma scale
     let extrude_length_without_perspective = length(dist);
@@ -597,6 +597,7 @@ fn main(in: VertexInput) -> VertexOutput {
 
     let projected_extrude = drawable.matrix * vec4<f32>(dist / ratio, 0.0, 0.0);
     let position = drawable.matrix * vec4<f32>(pos + offset2 / ratio, 0.0, 1.0) + projected_extrude;
+#endif
 
     let extrude_length_without_perspective = length(dist);
     let extrude_length_with_perspective = length(projected_extrude.xy / position.w * paintParams.units_to_pixels);
@@ -918,6 +919,7 @@ fn main(in: VertexInput) -> VertexOutput {
 
     let projected_extrude = drawable.matrix * vec4<f32>(dist / drawable.ratio, 0.0, 0.0);
     let position = drawable.matrix * vec4<f32>(pos + offset2 / drawable.ratio, 0.0, 1.0) + projected_extrude;
+#endif
 
     // Calculate gamma scale
     let extrude_length_without_perspective = length(dist);
