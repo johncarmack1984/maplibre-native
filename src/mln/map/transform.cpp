@@ -708,6 +708,11 @@ void Transform::startTransition(const CameraOptions& camera,
 
     transitionFrameFn = [isAnimated, animation, frame, anchor, anchorLatLng, this](const TimePoint now) {
         float t = isAnimated ? (std::chrono::duration<float>(now - transitionStart) / transitionDuration) : 1.0f;
+        // On the globe the anchor is re-read every frame and the zoom around it is GL JS's blend of the exact
+        // solution and a damped heuristic; the exact solution alone jumps near the horizon.
+        const bool globeZoomAround = anchor && state.isGlobeRendering();
+        const LatLng zoomLocation = globeZoomAround ? state.screenCoordinateToLatLng(*anchor) : anchorLatLng;
+        const double zoomBefore = state.getZoom();
         if (t >= 1.0) {
             frame(1.0);
         } else {
@@ -715,7 +720,14 @@ void Transform::startTransition(const CameraOptions& camera,
             frame(ease.solve(t, 0.001));
         }
 
-        if (anchor) state.moveLatLng(anchorLatLng, *anchor);
+        if (anchor) {
+            if (globeZoomAround && state.getZoom() != zoomBefore) {
+                VerticalPerspectiveProjection::zoomAroundPoint(
+                    state, *anchor, zoomLocation, state.getZoom() - zoomBefore);
+            } else {
+                state.moveLatLng(anchorLatLng, *anchor);
+            }
+        }
 
         // At t = 1.0, a DidChangeAnimated notification should be sent from finish().
         if (t < 1.0) {

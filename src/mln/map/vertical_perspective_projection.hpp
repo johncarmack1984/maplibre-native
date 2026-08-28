@@ -58,6 +58,14 @@ public:
     /// Zoom change that keeps the globe the same apparent size when the center moves between latitudes.
     static double zoomAdjustment(double fromLatitude, double toLatitude);
 
+    /// GL JS `handleMapControlsRollPitchBearingZoom`: after the zoom changed by `zoomDelta`, move the center so that
+    /// `zoomLocation` stays under `anchor`, exactly where that is well posed and by a damped heuristic near the
+    /// horizon, where a pixel is worth degrees of arc and the exact solution jumps or does not exist.
+    static void zoomAroundPoint(TransformState&,
+                                const ScreenCoordinate& anchor,
+                                const LatLng& zoomLocation,
+                                double zoomDelta);
+
     /// The shorter signed way around from one angle to the other, in degrees.
     static double differenceOfAnglesDegrees(double from, double to);
 

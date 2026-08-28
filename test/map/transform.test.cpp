@@ -1536,6 +1536,27 @@ TEST(GlobeTransform, AnchoredZoomKeepsTheAnchorInPlace) {
     EXPECT_NEAR(anchor.y, after.y, 0.5);
 }
 
+TEST(GlobeTransform, ZoomingOutAroundAnAnchorNearTheHorizonStaysContinuous) {
+    // A fast pinch-out with the focal point drifting off the planet: the exact re-anchoring jumped the center by
+    // ten degrees of latitude and the zoom by half a level for one frame (a much larger globe); GL JS blends in a
+    // damped heuristic near the horizon.
+    Transform transform;
+    setUpGlobe(transform, {48.0, 10.0}, 6.0);
+    const ScreenCoordinate anchor{600, 200};
+    double lastRadius = transform.getState().getGlobeRadiusPixels();
+    LatLng lastCenter = transform.getLatLng();
+    for (int i = 1; i <= 60; ++i) {
+        transform.easeTo(CameraOptions().withZoom(6.0 - i * 0.1).withAnchor(anchor));
+        if (i % 3 == 0) transform.moveBy({-7, 4});
+        const double radius = transform.getState().getGlobeRadiusPixels();
+        const LatLng center = transform.getLatLng();
+        EXPECT_LE(radius, lastRadius * 1.005) << "step " << i;
+        EXPECT_LT(std::abs(center.latitude() - lastCenter.latitude()), 5.0) << "step " << i;
+        lastRadius = radius;
+        lastCenter = center;
+    }
+}
+
 TEST(GlobeTransform, PolesAreReachableAndZoomFollowsLatitude) {
     Transform transform;
     setUpGlobe(transform, {0.0, 0.0}, 0.0);
