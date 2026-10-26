@@ -13,8 +13,12 @@
 #include <mln/util/feature.hpp>
 #include <mln/util/range.hpp>
 
+#include <array>
 #include <memory>
+#include <optional>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <map>
 
@@ -87,6 +91,10 @@ private:
     TileObserver* observer = nullptr;
 
     float prevLng = 0;
+
+    /// The source's bounds in the world square of the projection named, kept until either changes.
+    std::optional<std::pair<std::string, LatLngBounds>> boundsWorldBoxKey;
+    std::array<double, 4> boundsWorldBox{};
 
     bool fadingTiles = false;
     bool cacheEnabled = true;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mln/map/transform_state.hpp>
 #include <mln/renderer/tile_parameters.hpp>
 #include <mln/storage/file_source.hpp>
 #include <mln/tile/tile_loader.hpp>
@@ -12,6 +13,12 @@ namespace mln {
 
 inline std::exception_ptr getCantLoadTileError() {
     return std::make_exception_ptr(std::runtime_error("Can't load tile."));
+}
+
+/// The grid `{bbox}` is in: the map projection's, or none for Mercator's EPSG:3857.
+inline const TileMatrixSet* tileMatrixSetFor(const TileParameters& parameters) {
+    const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
+    return isMercator(helper) ? nullptr : &helper.tileMatrixSet();
 }
 
 template <typename T>
@@ -27,7 +34,8 @@ TileLoader<T>::TileLoader(T& tile_,
                               id.canonical.y,
                               id.canonical.z,
                               tileset.scheme,
-                              Resource::LoadingMethod::CacheOnly)),
+                              Resource::LoadingMethod::CacheOnly,
+                              tileMatrixSetFor(parameters))),
       fileSource(parameters.fileSource) {
     assert(!request);
 

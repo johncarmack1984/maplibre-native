@@ -65,3 +65,21 @@ TEST(TileRange, ContainsBoundsCrossingAntimeridian) {
         EXPECT_TRUE(range.contains(CanonicalTileID(6, 63, 28)));
     }
 }
+
+TEST(TileRange, FromWorldBox) {
+    // Lng 0..90 and lat 45..90 of the identity: the top row of the north-east quarter.
+    auto range = util::TileRange::fromWorldBox({0.5, 0, 1, 0.25}, 0, 2);
+    EXPECT_TRUE(range.contains(CanonicalTileID(2, 2, 0)));
+    EXPECT_TRUE(range.contains(CanonicalTileID(2, 3, 0)));
+    EXPECT_FALSE(range.contains(CanonicalTileID(2, 2, 1)));
+    EXPECT_FALSE(range.contains(CanonicalTileID(2, 1, 0)));
+    EXPECT_TRUE(range.contains(CanonicalTileID(1, 1, 0)));
+    EXPECT_FALSE(range.contains(CanonicalTileID(1, 0, 0)));
+    EXPECT_TRUE(range.contains(CanonicalTileID(0, 0, 0)));
+}
+
+TEST(TileRange, FromWorldBoxOutsideTheSquare) {
+    auto range = util::TileRange::fromWorldBox({1.5, 0, 2, 1}, 0, 2);
+    EXPECT_FALSE(range.contains(CanonicalTileID(0, 0, 0)));
+    EXPECT_FALSE(range.contains(CanonicalTileID(2, 3, 0)));
+}

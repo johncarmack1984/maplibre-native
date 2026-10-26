@@ -5,6 +5,7 @@
 #include <mln/renderer/query.hpp>
 #include <mln/map/transform.hpp>
 #include <mln/map/vertical_perspective_projection.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
 #include <mln/math/clamp.hpp>
 #include <mln/math/log2.hpp>
 #include <mln/actor/scheduler.hpp>
@@ -202,7 +203,18 @@ void TilePyramid::update(const std::vector<Immutable<style::LayerProperties>>& l
         const bool variableZoom = parameters.tileLodMode == TileLodMode::Distance ||
                                   parameters.transformState.isGlobeRendering();
         const int32_t maxZoom = variableZoom ? zoomRange.max : std::min(tileZoom, static_cast<int32_t>(zoomRange.max));
-        tileRange = util::TileRange::fromLatLngBounds(*bounds, zoomRange.min, maxZoom);
+        const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
+        if (helper.wraps()) {
+            tileRange = util::TileRange::fromLatLngBounds(*bounds, zoomRange.min, maxZoom);
+        } else {
+            // The bounds' edges can curve in the projection: as GL JS does, sample them into a box in its world square.
+            if (!boundsWorldBoxKey || boundsWorldBoxKey->first != helper.name() ||
+                boundsWorldBoxKey->second != *bounds) {
+                boundsWorldBoxKey = std::pair(helper.name(), *bounds);
+                boundsWorldBox = latLngBoxToWorldBox(helper, *bounds);
+            }
+            tileRange = util::TileRange::fromWorldBox(boundsWorldBox, zoomRange.min, maxZoom);
+        }
     }
     auto createTileFn = [&](const OverscaledTileID& tileID) -> Tile* {
         if (tileRange && !tileRange->contains(tileID.canonical)) {
