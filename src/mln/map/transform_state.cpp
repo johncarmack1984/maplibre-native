@@ -116,6 +116,12 @@ void TransformState::setProperties(const TransformStateProperties& properties) {
 // MARK: - Projection
 
 void TransformState::setProjectionDefinition(const ProjectionDefinition& definition) {
+    if (definition.registered != registeredProjection) {
+        setRegisteredProjection(definition.registered);
+    }
+    if (!definition.registered.empty()) {
+        return;
+    }
     const double transition = util::GLOBE_ENABLED ? definition.transitionState() : 0.0;
     if (transition == projectionTransition) {
         return;
@@ -137,6 +143,36 @@ void TransformState::setProjectionDefinition(const ProjectionDefinition& definit
     if (leavesGlobe && !size.isEmpty()) {
         setLatLngZoom(getLatLng(bounds == LatLngBounds() ? LatLng::Wrapped : LatLng::Unwrapped), getZoom());
     }
+}
+
+void TransformState::setRegisteredProjection(const std::string& name) {
+    const LatLng center = getLatLng(LatLng::Unwrapped);
+    registeredProjection = name;
+    std::shared_ptr<const WorldCoordinateHelper> helper = mercatorWorldCoordinateHelper();
+    if (!name.empty()) {
+        if (auto crs = getRegisteredProjection(name)) {
+            helper = std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs));
+        } else {
+            Log::Warning(Event::General,
+                         "Unknown projection name \"" + name + "\". Falling back to mercator projection.");
+        }
+    }
+    projection = std::make_shared<MercatorProjection>(std::move(helper));
+    projectionTransition = 0;
+    updateCenterWorldBox();
+    requestMatricesUpdate = true;
+    setLatLngZoom(center, getZoom());
+}
+
+void TransformState::updateCenterWorldBox() {
+    const auto& helper = projection->worldCoordinateHelper();
+    centerWorldBox = bounds == LatLngBounds() || helper.wraps() ? std::array<double, 4>{0, 0, 1, 1}
+                                                                : latLngBoxToWorldBox(helper, bounds);
+}
+
+Point<double> TransformState::centerWorldPoint() const {
+    const double worldSize = Projection::worldSize(scale);
+    return {0.5 - x / worldSize, 0.5 - y / worldSize};
 }
 
 // MARK: - Matrix
@@ -192,7 +228,11 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
     // Make sure the camera state is up-to-date
     updateCameraState();
 
-    mat4 worldToCamera = camera.getWorldToCamera(scale, viewportMode == ViewportMode::FlippedY);
+    const auto& helper = projection->worldCoordinateHelper();
+    mat4 worldToCamera = camera.getWorldToCamera(
+        scale,
+        viewportMode == ViewportMode::FlippedY,
+        isMercator(helper) ? std::nullopt : std::optional(helper.metersPerWorldUnit(centerWorldPoint())));
     mat4 cameraToClip = camera.getCameraToClipPerspective(
         getFieldOfView(), static_cast<double>(size.width) / size.height, nearZ, farZ);
 
@@ -218,7 +258,7 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
         projMatrix[11] = 0.0;
 
         // mat[8], mat[9] control x-skew, y-skew
-        double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
+        double pixelsPerMeter = 1.0 / metersPerPixelAtCenter();
         projMatrix[8] = xSkew * pixelsPerMeter;
         projMatrix[9] = ySkew * pixelsPerMeter;
     }
@@ -310,10 +350,14 @@ void TransformState::updateStateFromCamera() {
 
     // Compute center point of the map
     const Point<double> mercatorPoint = {position[0] + dx * travel, position[1] + dy * travel};
-    setLatLngZoom(latLngFromMercator(mercatorPoint), std::min(zoom, scaleZoom(max_scale)));
+    const auto& helper = projection->worldCoordinateHelper();
+    setLatLngZoom(isMercator(helper) ? latLngFromMercator(mercatorPoint) : helper.latLngFromWorld(mercatorPoint),
+                  std::min(zoom, scaleZoom(max_scale)));
 
     const double mercatorZ = position[2] + dz * travel;
-    double alt_m = mercatorZ * Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), 0) * util::tileSize_D;
+    double alt_m = isMercator(helper) ? mercatorZ * Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), 0) *
+                                            util::tileSize_D
+                                      : mercatorZ * helper.metersPerWorldUnit(mercatorPoint);
     setCenterAltitude(alt_m);
     setBearing(newBearing);
     setPitch(newPitch);
@@ -566,11 +610,23 @@ void TransformState::setEdgeInsets(const EdgeInsets& val) {
 // MARK: - Position
 
 LatLng TransformState::getLatLng(LatLng::WrapMode wrapMode) const {
+    const auto& helper = projection->worldCoordinateHelper();
+    if (!isMercator(helper)) {
+        return helper.latLngFromWorld(centerWorldPoint());
+    }
     return {util::rad2deg(2 * std::atan(std::exp(y / Cc)) - 0.5 * pi), -x / Bc, wrapMode};
 }
 
 double TransformState::getCenterAltitude() const {
-    return z * Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
+    return z * metersPerPixelAtCenter();
+}
+
+double TransformState::metersPerPixelAtCenter() const {
+    const auto& helper = projection->worldCoordinateHelper();
+    if (!isMercator(helper)) {
+        return helper.metersPerWorldUnit(centerWorldPoint()) / Projection::worldSize(scale);
+    }
+    return Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
 }
 
 double TransformState::pixel_x() const {
@@ -623,6 +679,7 @@ double TransformState::getZoomFraction() const {
 void TransformState::setLatLngBounds(LatLngBounds bounds_) {
     if (bounds_ != bounds) {
         bounds = bounds_;
+        updateCenterWorldBox();
         setLatLngZoom(getLatLng(LatLng::Unwrapped), getZoom());
     }
 }
@@ -983,6 +1040,19 @@ void TransformState::constrain(double& scale_, double& x_, double& y_) const {
         return;
     }
 
+    // A world that does not wrap keeps the center inside its square, or inside the max bounds there, and leaves the
+    // zoom to the minimum zoom (GL JS `_constrainToWorldSquare`).
+    if (!projection->worldCoordinateHelper().wraps()) {
+        const double worldSize = Projection::worldSize(scale_);
+        x_ = util::clamp(x_,
+                         (0.5 - std::min(centerWorldBox[2], 1.0)) * worldSize,
+                         (0.5 - std::max(centerWorldBox[0], 0.0)) * worldSize);
+        y_ = util::clamp(y_,
+                         (0.5 - std::min(centerWorldBox[3], 1.0)) * worldSize,
+                         (0.5 - std::max(centerWorldBox[1], 0.0)) * worldSize);
+        return;
+    }
+
     // The globe has no off-world area: the center goes past the Mercator range toward a pole as far as the zoom
     // allows.
     if (isGlobeRendering()) {
@@ -1155,6 +1225,14 @@ void TransformState::moveLatLng(const LatLng& latLng, const ScreenCoordinate& an
 }
 
 void TransformState::setLatLngZoom(const LatLng& latLng, double zoom) {
+    const auto& helper = projection->worldCoordinateHelper();
+    if (!isMercator(helper)) {
+        const double newScale = util::clamp(zoomScale(zoom), constrainedMinScale(), max_scale);
+        const double newWorldSize = Projection::worldSize(newScale);
+        const Point<double> world = helper.worldFromLatLng(latLng);
+        setScalePoint(newScale, {(0.5 - world.x) * newWorldSize, (0.5 - world.y) * newWorldSize});
+        return;
+    }
     LatLng requested = latLng;
     // Globe centers arrive wrapped, and bounds across the antimeridian reach past 180 degrees: take the copy of the
     // longitude nearest the bounds before constraining it.
@@ -1193,7 +1271,7 @@ void TransformState::setLatLngZoom(const LatLng& latLng, double zoom) {
 }
 
 void TransformState::setCenterAltitude(double alt_m) {
-    z = alt_m / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
+    z = alt_m / metersPerPixelAtCenter();
     requestMatricesUpdate = true;
 }
 

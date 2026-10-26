@@ -99,7 +99,9 @@ void TilePyramid::update(const std::vector<Immutable<style::LayerProperties>>& l
         return;
     }
 
-    handleWrapJump(static_cast<float>(parameters.transformState.getLatLng().longitude()));
+    handleWrapJump(parameters.transformState.getProjection().worldCoordinateHelper().wraps()
+                       ? static_cast<float>(parameters.transformState.getLatLng().longitude())
+                       : 0.0f);
 
     // Optionally shift the zoom level
     double zoom = util::clamp<double>(parameters.transformState.getZoom() + parameters.tileLodZoomShift,

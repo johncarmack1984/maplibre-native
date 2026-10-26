@@ -70,7 +70,8 @@ StyleProperty Projection::getProperty(const std::string& name) const {
 
 SubdivisionGranularitySetting Projection::Impl::getSubdivisionGranularity() const {
     if (type.isUndefined() ||
-        (type.isConstant() && type.asConstant() == ProjectionDefinition(ProjectionType::Mercator))) {
+        (type.isConstant() && (type.asConstant() == ProjectionDefinition(ProjectionType::Mercator) ||
+                               !type.asConstant().registered.empty()))) {
         return SubdivisionGranularitySetting::none();
     }
     return SubdivisionGranularitySetting::globe();

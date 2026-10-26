@@ -333,8 +333,20 @@ private:
     const mat4& getInvertedMatrix() const;
 
 private:
+    void setRegisteredProjection(const std::string& name);
+    void updateCenterWorldBox();
+    /// The center in the world square.
+    Point<double> centerWorldPoint() const;
+    /// Meters per screen pixel at the center, at the current zoom.
+    double metersPerPixelAtCenter() const;
+
     std::shared_ptr<const ProjectionBase> projection;
     double projectionTransition = 0;
+    /// The registered projection the map is in, or empty.
+    std::string registeredProjection;
+    /// Where a projection whose world does not wrap keeps the center, in world units: the max bounds as a rectangle
+    /// in its world square, or the whole square.
+    std::array<double, 4> centerWorldBox{0, 0, 1, 1};
 
     ConstrainMode constrainMode;
     ViewportMode viewportMode;

@@ -541,7 +541,10 @@ std::unique_ptr<RenderTree> RenderOrchestrator::createRenderTree(
     bool symbolBucketsChanged = false;
     bool symbolBucketsAdded = false;
     std::set<std::string> usedSymbolLayers;
-    const auto longitude = static_cast<float>(updateParameters->transformState.getLatLng().longitude());
+    const auto& state = updateParameters->transformState;
+    const auto longitude = state.getProjection().worldCoordinateHelper().wraps()
+                               ? static_cast<float>(state.getLatLng().longitude())
+                               : 0.0f;
     for (auto it = layersNeedPlacement.crbegin(); it != layersNeedPlacement.crend(); ++it) {
         MLN_TRACE_ZONE(placement layer);
         RenderLayer& layer = *it;

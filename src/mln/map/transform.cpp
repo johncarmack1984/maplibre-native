@@ -118,6 +118,7 @@ void Transform::jumpTo(const CameraOptions& camera) {
 void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions& animation) {
     CameraOptions camera = inputCamera;
     const bool globe = state.isGlobeRendering();
+    const bool wraps = state.getProjection().worldCoordinateHelper().wraps();
 
     Duration duration = animation.duration.value_or(Duration::zero());
     if (!globe && state.getLatLngBounds() == LatLngBounds() && !isGestureInProgress() && duration != Duration::zero()) {
@@ -138,7 +139,7 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
     // On the globe the ease heads for the center the zoom it was given allows, or else the zoom it starts from, as GL
     // JS's does; its last frame is bounded by the zoom it ends on.
     const LatLng latLng = state.constrainedCenter(
-        state.getLatLngBounds() != LatLngBounds() ? unwrappedLatLng : unwrappedLatLng.wrapped(),
+        state.getLatLngBounds() != LatLngBounds() || !wraps ? unwrappedLatLng : unwrappedLatLng.wrapped(),
         camera.zoom ? zoom : getZoom());
 
     double bearing = camera.bearing ? util::deg2rad(-*camera.bearing) : getBearing();
@@ -154,7 +155,7 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
         return;
     }
 
-    if (state.getLatLngBounds() == LatLngBounds()) {
+    if (state.getLatLngBounds() == LatLngBounds() && wraps) {
         if (isGestureInProgress()) {
             // If gesture in progress, we transfer the wrap rounds from the end
             // longitude into start, so the "scroll effect" of rounding the
@@ -280,6 +281,7 @@ void Transform::flyTo(const CameraOptions& inputCamera,
                       bool linearZoomInterpolation) {
     CameraOptions camera = inputCamera;
     const bool globe = state.isGlobeRendering();
+    const bool wraps = state.getProjection().worldCoordinateHelper().wraps();
 
     double zoom = camera.zoom.value_or(getZoom());
     if (!camera.zoom && camera.center && globe) {
@@ -289,8 +291,8 @@ void Transform::flyTo(const CameraOptions& inputCamera,
 
     const EdgeInsets& padding = camera.padding.value_or(state.getEdgeInsets());
     // As in easeTo, the globe's flight heads for the center the zoom it was given, or else starts from, allows.
-    const LatLng latLng = state.constrainedCenter(camera.center.value_or(getLatLng(LatLng::Unwrapped)).wrapped(),
-                                                  camera.zoom ? zoom : getZoom());
+    const LatLng target = camera.center.value_or(getLatLng(LatLng::Unwrapped));
+    const LatLng latLng = state.constrainedCenter(wraps ? target.wrapped() : target, camera.zoom ? zoom : getZoom());
     const double centerAlt = camera.centerAltitude.value_or(state.getCenterAltitude());
     double bearing = camera.bearing ? util::deg2rad(-*camera.bearing) : getBearing();
     double pitch = camera.pitch ? util::deg2rad(*camera.pitch) : getPitch();
@@ -306,8 +308,11 @@ void Transform::flyTo(const CameraOptions& inputCamera,
     }
 
     // Determine endpoints.
-    LatLng startLatLng = getLatLng(LatLng::Unwrapped).wrapped();
-    startLatLng.unwrapForShortestPath(latLng);
+    LatLng startLatLng = getLatLng(LatLng::Unwrapped);
+    if (wraps) {
+        startLatLng = startLatLng.wrapped();
+        startLatLng.unwrapForShortestPath(latLng);
+    }
     const double startCenterAlt = state.getCenterAltitude();
 
     const Point<double> startPoint = state.getProjection().project(startLatLng, state.getScale());

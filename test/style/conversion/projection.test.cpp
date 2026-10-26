@@ -11,6 +11,33 @@ using namespace mln;
 using namespace mln::style;
 using namespace mln::style::conversion;
 
+TEST(StyleConversion, RegisteredProjection) {
+    Error error;
+    auto parseProjection = [&](const std::string& src) {
+        return convertJSON<Projection>(src, error);
+    };
+
+    {
+        auto projection = parseProjection(R"({"type":"identity"})");
+        ASSERT_TRUE(projection);
+        EXPECT_EQ(ProjectionDefinition::registeredProjection("identity"), projection->impl->evaluate(3.f));
+    }
+
+    {
+        auto projection = parseProjection(R"({"type":"EPSG:3413"})");
+        ASSERT_TRUE(projection);
+        EXPECT_EQ(ProjectionDefinition::registeredProjection("EPSG:3413"), projection->impl->evaluate(3.f));
+        EXPECT_EQ(mln::Value(std::string("EPSG:3413")), projection->getType().asConstant().serialize());
+    }
+
+    EXPECT_FALSE(parseProjection(R"({"type":"equal-earth"})"));
+    EXPECT_FALSE(parseProjection(R"({"type":["mercator","EPSG:3413",0.5]})"));
+    EXPECT_EQ(
+        "Projection expressions cannot use the registered projection \"EPSG:3413\", which only works as a plain "
+        "name.",
+        error.message);
+}
+
 TEST(StyleConversion, Projection) {
     Error error;
 

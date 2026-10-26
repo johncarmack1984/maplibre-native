@@ -333,10 +333,11 @@ void Map::Impl::jumpTo(const CameraOptions& camera) {
 }
 
 ProjectionDefinition Map::Impl::projectionAt(double zoom) const {
-    if (mode == MapMode::Tile || !util::GLOBE_ENABLED) {
+    auto definition = style->impl->getProjection()->impl->evaluate(static_cast<float>(zoom));
+    if (definition.registered.empty() && (mode == MapMode::Tile || !util::GLOBE_ENABLED)) {
         return ProjectionDefinition(ProjectionType::Mercator);
     }
-    return style->impl->getProjection()->impl->evaluate(static_cast<float>(zoom));
+    return definition;
 }
 
 bool Map::Impl::isRenderingStatsViewEnabled() const {

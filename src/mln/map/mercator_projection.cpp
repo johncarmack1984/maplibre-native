@@ -9,11 +9,17 @@ MercatorProjection::MercatorProjection(std::shared_ptr<const WorldCoordinateHelp
     : helper(std::move(helper_)) {}
 
 Point<double> MercatorProjection::project(const LatLng& latLng, double scale) const {
-    return Projection::project(latLng, scale);
+    if (isMercator(*helper)) {
+        return Projection::project(latLng, scale);
+    }
+    return helper->worldFromLatLng(latLng) * Projection::worldSize(scale);
 }
 
 LatLng MercatorProjection::unproject(const Point<double>& point, double scale, LatLng::WrapMode wrapMode) const {
-    return Projection::unproject(point, scale, wrapMode);
+    if (isMercator(*helper)) {
+        return Projection::unproject(point, scale, wrapMode);
+    }
+    return helper->latLngFromWorld(point / Projection::worldSize(scale));
 }
 
 void mercatorTileMatrix(mat4& matrix, const UnwrappedTileID& tileID, double scale) {
