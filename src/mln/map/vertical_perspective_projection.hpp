@@ -10,6 +10,8 @@ namespace mln {
 /// Port of MapLibre GL JS `vertical_perspective_transform.ts`.
 class VerticalPerspectiveProjection final : public ProjectionBase {
 public:
+    const WorldCoordinateHelper& worldCoordinateHelper() const override { return *mercatorWorldCoordinateHelper(); }
+
     Point<double> project(const LatLng&, double scale) const override;
     LatLng unproject(const Point<double>&, double scale, LatLng::WrapMode) const override;
 

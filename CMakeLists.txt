@@ -481,6 +481,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mln/util/symbol_error_observer.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/thread.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/tile_mesh.hpp
+    ${PROJECT_SOURCE_DIR}/include/mln/util/tile_matrix_set.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/tile_server_options.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/tileset.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/timer.hpp
@@ -590,6 +591,8 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mln/map/transform_state.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/vertical_perspective_projection.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/vertical_perspective_projection.hpp
+    ${PROJECT_SOURCE_DIR}/src/mln/map/world_coordinate_helper.cpp
+    ${PROJECT_SOURCE_DIR}/src/mln/map/world_coordinate_helper.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/zoom_history.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/math/log2.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/platform/settings.cpp

@@ -1036,16 +1036,16 @@ void TransformState::constrainCameraAndZoomToBounds(CameraOptions& requestedCame
         state.setLatLngZoom(getLatLng(), scaleZoom(requestedScale));
         LatLng screenLatLng = state.screenCoordinateToLatLng(anchor);
 
-        auto latLngCoord = Projection::project(anchorLatLng, requestedScale);
-        auto anchorCoord = Projection::project(screenLatLng, requestedScale);
+        auto latLngCoord = projection->project(anchorLatLng, requestedScale);
+        auto anchorCoord = projection->project(screenLatLng, requestedScale);
         anchorOffset = latLngCoord - anchorCoord;
     }
 
     mln::LatLngBounds currentBounds = getLatLngBounds();
-    mln::ScreenCoordinate neBounds = Projection::project(currentBounds.northeast(), requestedScale);
-    mln::ScreenCoordinate swBounds = Projection::project(currentBounds.southwest(), requestedScale);
-    mln::ScreenCoordinate center = Projection::project(centerLatLng, requestedScale);
-    mln::ScreenCoordinate currentCenter = Projection::project(getLatLng(), requestedScale);
+    mln::ScreenCoordinate neBounds = projection->project(currentBounds.northeast(), requestedScale);
+    mln::ScreenCoordinate swBounds = projection->project(currentBounds.southwest(), requestedScale);
+    mln::ScreenCoordinate center = projection->project(centerLatLng, requestedScale);
+    mln::ScreenCoordinate currentCenter = projection->project(getLatLng(), requestedScale);
 
     double minY = neBounds.y;
     double maxY = swBounds.y;
@@ -1129,7 +1129,8 @@ void TransformState::constrainCameraAndZoomToBounds(CameraOptions& requestedCame
     if (resultX != startX || resultY != startY) {
         // If we made changes just drop any anchor point
         requestedCamera.anchor.reset();
-        requestedCamera.center = std::optional(Projection::unproject({resultX, resultY}, requestedScale));
+        requestedCamera.center = std::optional(
+            projection->unproject({resultX, resultY}, requestedScale, LatLng::Unwrapped));
     }
 }
 
@@ -1147,10 +1148,10 @@ void TransformState::moveLatLng(const LatLng& latLng, const ScreenCoordinate& an
         }
         return;
     }
-    auto centerCoord = Projection::project(getLatLng(LatLng::Unwrapped), scale);
-    auto latLngCoord = Projection::project(latLng, scale);
-    auto anchorCoord = Projection::project(screenCoordinateToLatLng(anchor), scale);
-    setLatLngZoom(Projection::unproject(centerCoord + latLngCoord - anchorCoord, scale), getZoom());
+    auto centerCoord = projection->project(getLatLng(LatLng::Unwrapped), scale);
+    auto latLngCoord = projection->project(latLng, scale);
+    auto anchorCoord = projection->project(screenCoordinateToLatLng(anchor), scale);
+    setLatLngZoom(projection->unproject(centerCoord + latLngCoord - anchorCoord, scale, LatLng::Unwrapped), getZoom());
 }
 
 void TransformState::setLatLngZoom(const LatLng& latLng, double zoom) {
@@ -1227,7 +1228,7 @@ float TransformState::maxPitchScaleFactor() const {
     const auto corner = mercatorScreenCoordinateToTileCoordinate({0, static_cast<float>(getSize().height)}, 0);
     const auto latLng = projection->unproject(corner.p, 1. / util::tileSize_D, LatLng::Unwrapped);
 
-    Point<double> pt = isGlobeRendering() ? corner.p * scale : Projection::project(latLng, scale) / util::tileSize_D;
+    Point<double> pt = isGlobeRendering() ? corner.p * scale : projection->project(latLng, scale) / util::tileSize_D;
     vec4 p = {{pt.x, pt.y, 0, 1}};
     vec4 topPoint;
     matrix::transformMat4(topPoint, p, getCoordMatrix());

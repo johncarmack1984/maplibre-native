@@ -5,6 +5,9 @@
 
 namespace mln {
 
+MercatorProjection::MercatorProjection(std::shared_ptr<const WorldCoordinateHelper> helper_)
+    : helper(std::move(helper_)) {}
+
 Point<double> MercatorProjection::project(const LatLng& latLng, double scale) const {
     return Projection::project(latLng, scale);
 }

@@ -3064,3 +3064,155 @@ TEST(Transform, MercatorCameraCenterIsOnTheTransformsWorldCopy) {
     EXPECT_NEAR(400.0, point.x, 1e-6);
     EXPECT_NEAR(300.0, point.y, 1e-6);
 }
+
+namespace {
+// Lat/lng answers of the Mercator transform on a few cameras, labeled, for the bit identity pin below.
+std::vector<std::pair<std::string, double>> mercatorTransformAnswers() {
+    struct Camera {
+        std::string name;
+        Size size;
+        LatLng center;
+        double zoom;
+        double bearing;
+        double pitch;
+        EdgeInsets padding;
+    };
+    const std::vector<Camera> cameras = {
+        {"A", {512, 512}, {37.7749, -122.4194}, 12.5, 30, 45, {}},
+        {"B", {800, 600}, {-33.8688, 151.2093}, 3.2, -110, 0, {10, 20, 30, 40}},
+        {"C", {1024, 768}, {79.5, 170.25}, 1.7, 10, 60, {}},
+    };
+    std::vector<std::pair<std::string, double>> answers;
+    for (const auto& camera : cameras) {
+        const auto add = [&](const std::string& label, double value) {
+            answers.emplace_back(camera.name + " " + label, value);
+        };
+        Transform transform;
+        transform.resize(camera.size);
+        const auto options = CameraOptions()
+                                 .withCenter(camera.center)
+                                 .withZoom(camera.zoom)
+                                 .withBearing(camera.bearing)
+                                 .withPitch(camera.pitch)
+                                 .withPadding(camera.padding);
+        transform.jumpTo(options);
+        const TransformState& state = transform.getState();
+        add("center latitude", state.getLatLng().latitude());
+        add("center longitude", state.getLatLng().longitude());
+        const auto position = *state.getFreeCameraOptions().position;
+        add("camera x", position[0]);
+        add("camera y", position[1]);
+        add("camera z", position[2]);
+        const auto screen = state.latLngToScreenCoordinate(
+            {camera.center.latitude() + 0.001, camera.center.longitude() - 0.002});
+        add("screen x", screen.x);
+        add("screen y", screen.y);
+        const auto atScreen = state.screenCoordinateToLatLng({50, 60});
+        add("at screen latitude", atScreen.latitude());
+        add("at screen longitude", atScreen.longitude());
+        add("max pitch scale factor", state.maxPitchScaleFactor());
+
+        TransformState moved = state;
+        moved.moveLatLng({camera.center.latitude() + 0.01, camera.center.longitude() + 0.02}, {100, 150});
+        add("moved latitude", moved.getLatLng().latitude());
+        add("moved longitude", moved.getLatLng().longitude());
+
+        TransformState fromCamera = state;
+        fromCamera.setFreeCameraOptions(state.getFreeCameraOptions());
+        add("from camera latitude", fromCamera.getLatLng().latitude());
+        add("from camera longitude", fromCamera.getLatLng().longitude());
+        add("from camera zoom", fromCamera.getZoom());
+
+        const auto target = CameraOptions()
+                                .withCenter(LatLng{camera.center.latitude() + 2, camera.center.longitude() - 3})
+                                .withZoom(camera.zoom + 1.5)
+                                .withBearing(camera.bearing + 20)
+                                .withPitch(10);
+        transform.easeTo(target, AnimationOptions(Seconds(1)));
+        transform.updateTransitions(transform.getTransitionStart() + Milliseconds(500));
+        add("eased latitude", transform.getLatLng().latitude());
+        add("eased longitude", transform.getLatLng().longitude());
+        add("eased zoom", transform.getZoom());
+        transform.updateTransitions(transform.getTransitionStart() + transform.getTransitionDuration());
+
+        transform.jumpTo(options);
+        transform.flyTo(target, AnimationOptions(Seconds(1)));
+        transform.updateTransitions(transform.getTransitionStart() + Milliseconds(500));
+        add("flown latitude", transform.getLatLng().latitude());
+        add("flown longitude", transform.getLatLng().longitude());
+        add("flown zoom", transform.getZoom());
+        transform.updateTransitions(transform.getTransitionStart() + transform.getTransitionDuration());
+    }
+    return answers;
+}
+} // namespace
+
+// Captured on the transform before lat/lng math went through the projection's world coordinate helper.
+TEST(Transform, MercatorBitIdentity) {
+    const std::vector<std::pair<std::string, double>> expected = {
+        {"A center latitude", 0x1.2e32fec56d5d4p+5},
+        {"A center longitude", -0x1.e9ad77318fc5p+6},
+        {"A camera x", 0x1.4761d3a2c1c01p-3},
+        {"A camera y", 0x1.8bf5b6b21e2ap-2},
+        {"A camera z", 0x1.8p-13},
+        {"A screen x", 0x1.d911199a33319p+7},
+        {"A screen y", 0x1.008e8c22a5372p+8},
+        {"A at screen latitude", 0x1.2e1d8a2113294p+5},
+        {"A at screen longitude", -0x1.e9ccdb1091b53p+6},
+        {"A max pitch scale factor", 0x1.8p+0},
+        {"A moved latitude", 0x1.2e506bed3385cp+5},
+        {"A moved longitude", -0x1.e9820b16397d8p+6},
+        {"A from camera latitude", 0x1.2e32fec56d5d4p+5},
+        {"A from camera longitude", -0x1.e9ad77318fc5p+6},
+        {"A from camera zoom", 0x1.9p+3},
+        {"A eased latitude", 0x1.3d9b62e16d7b3p+5},
+        {"A eased longitude", -0x1.f53a331c46ee5p+6},
+        {"A eased zoom", 0x1.b7823dcf206a1p+3},
+        {"A flown latitude", 0x1.3e31a60e5564ap+5},
+        {"A flown longitude", -0x1.f5ac70f8eb978p+6},
+        {"A flown zoom", 0x1.68431e62655a5p+3},
+        {"B center latitude", -0x1.0ef34d6a161e8p+5},
+        {"B center longitude", 0x1.2e6b295e9e1bp+7},
+        {"B camera x", 0x1.d70da043489bbp-1},
+        {"B camera y", 0x1.333f4aa532685p-1},
+        {"B camera z", 0x1.87bf6cc5b40ddp-3},
+        {"B screen x", 0x1.8606134214a5p+8},
+        {"B screen y", 0x1.3604e8efa2d28p+8},
+        {"B at screen latitude", -0x1.7b08a02e07df5p+5},
+        {"B at screen longitude", 0x1.6429bc062ed76p+7},
+        {"B max pitch scale factor", 0x1p+0},
+        {"B moved latitude", -0x1.2ffdb9df54632p+4},
+        {"B moved longitude", 0x1.0845dbeb9f96cp+7},
+        {"B from camera latitude", -0x1.0ef34d6a161e8p+5},
+        {"B from camera longitude", 0x1.2e6b295e9e1bp+7},
+        {"B from camera zoom", 0x1.999999999999ap+1},
+        {"B eased latitude", -0x1.ff1d4d12a4186p+4},
+        {"B eased longitude", 0x1.28a4cb6942862p+7},
+        {"B eased zoom", 0x1.1bd1486b0da0fp+2},
+        {"B flown latitude", -0x1.fff23496c858ep+4},
+        {"B flown longitude", 0x1.28cc50a374e97p+7},
+        {"B flown zoom", 0x1.1b989d51e97f9p+2},
+        {"C center latitude", 0x1.1475c76f38572p+6},
+        {"C center longitude", 0x1.548p+7},
+        {"C camera x", 0x1.bccfd463c4dc5p-1},
+        {"C camera y", 0x1.a4975300aaa14p-1},
+        {"C camera z", 0x1.6291d0b7f739p-2},
+        {"C screen x", 0x1.e3d4de5f9d3dep+8},
+        {"C screen y", 0x1.cfda2f4a5c37ep+8},
+        {"C at screen latitude", 0x1.f06d434fbfa68p+3},
+        {"C at screen longitude", 0x1.5ea93d108bfc4p+6},
+        {"C max pitch scale factor", 0x1.2b745ap+0},
+        {"C moved latitude", 0x1.1475c76f38572p+6},
+        {"C moved longitude", 0x1.f0782a1f8a34p+7},
+        {"C from camera latitude", 0x1.1475c76f38572p+6},
+        {"C from camera longitude", 0x1.548p+7},
+        {"C from camera zoom", 0x1.b333333333333p+0},
+        {"C eased latitude", 0x1.43641f2ae5c8bp+6},
+        {"C eased longitude", 0x1.4eb9a20aa46b2p+7},
+        {"C eased zoom", 0x1.77a290d61b41dp+1},
+        {"C flown latitude", 0x1.42c3976f5d372p+6},
+        {"C flown longitude", 0x1.4edce922fd0a8p+7},
+        {"C flown zoom", 0x1.729802ee1ebe8p+1},
+    };
+    EXPECT_EQ(expected, mercatorTransformAnswers());
+}
