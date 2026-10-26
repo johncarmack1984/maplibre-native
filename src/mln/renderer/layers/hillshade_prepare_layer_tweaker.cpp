@@ -10,6 +10,8 @@
 #include <mln/style/layers/hillshade_layer_properties.hpp>
 #include <mln/util/convert.hpp>
 
+#include <cmath>
+
 namespace mln {
 
 using namespace style;
@@ -27,6 +29,10 @@ constexpr const std::array<float, 4>& getUnpackVector(const Tileset::RasterEncod
 }
 } // namespace
 
+float hillshadeLog2WorldWidth(const WorldCoordinateHelper& helper) {
+    return helper.wraps() ? 25.2562f : static_cast<float>(std::log2(helper.metersPerWorldUnit({0.5, 0.5})));
+}
+
 void HillshadePrepareLayerTweaker::execute(LayerGroupBase& layerGroup, const PaintParameters& parameters) {
     if (layerGroup.empty()) {
         return;
@@ -38,6 +44,8 @@ void HillshadePrepareLayerTweaker::execute(LayerGroupBase& layerGroup, const Pai
 #endif
 
     propertiesUpdated = false;
+
+    const float log2WorldWidth = hillshadeLog2WorldWidth(parameters.state.getProjection().worldCoordinateHelper());
 
     visitLayerGroupDrawables(layerGroup, [&](gfx::Drawable& drawable) {
         if (!drawable.getTileID() || !drawable.getData() || !checkTweakDrawable(drawable)) {
@@ -55,7 +63,11 @@ void HillshadePrepareLayerTweaker::execute(LayerGroupBase& layerGroup, const Pai
             .unpack = getUnpackVector(drawableData.encoding),
             .dimension = {static_cast<float>(drawableData.stride), static_cast<float>(drawableData.stride)},
             .zoom = static_cast<float>(tileID.canonical.z),
-            .maxzoom = static_cast<float>(drawableData.maxzoom)};
+            .maxzoom = static_cast<float>(drawableData.maxzoom),
+            .log2_world_width = log2WorldWidth,
+            .pad1 = 0,
+            .pad2 = 0,
+            .pad3 = 0};
 
         auto& drawableUniforms = drawable.mutableUniformBuffers();
         drawableUniforms.createOrUpdate(idHillshadePrepareDrawableUBO, &drawableUBO, parameters.context);
