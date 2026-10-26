@@ -10,6 +10,8 @@ namespace style {
 struct SourceOptions {
     std::optional<Tileset::RasterEncoding> rasterEncoding = std::nullopt;
     std::optional<Tileset::VectorEncoding> vectorEncoding = std::nullopt;
+    /// The factors of the custom raster encoding, see `Tileset::rasterCustomFactors`.
+    std::optional<std::array<float, 4>> rasterCustomFactors = std::nullopt;
 };
 
 // NOTE: Any derived class must invalidate `weakFactory` in the destructor

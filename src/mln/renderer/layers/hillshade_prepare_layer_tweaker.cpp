@@ -17,18 +17,6 @@ namespace mln {
 using namespace style;
 using namespace shaders;
 
-namespace {
-// https://www.mapbox.com/help/access-elevation-data/#mapbox-terrain-rgb
-constexpr std::array<float, 4> unpackMapbox = {{6553.6f, 25.6f, 0.1f, 10000.0f}};
-
-// https://aws.amazon.com/public-datasets/terrain/
-constexpr std::array<float, 4> unpackTerrarium = {{256.0f, 1.0f, 1.0f / 256.0f, 32768.0f}};
-
-constexpr const std::array<float, 4>& getUnpackVector(const Tileset::RasterEncoding encoding) {
-    return (encoding == Tileset::RasterEncoding::Terrarium) ? unpackTerrarium : unpackMapbox;
-}
-} // namespace
-
 float hillshadeLog2WorldWidth(const WorldCoordinateHelper& helper) {
     return helper.wraps() ? 25.2562f : static_cast<float>(std::log2(helper.metersPerWorldUnit({0.5, 0.5})));
 }
@@ -60,7 +48,7 @@ void HillshadePrepareLayerTweaker::execute(LayerGroupBase& layerGroup, const Pai
 
         const HillshadePrepareDrawableUBO drawableUBO = {/* .matrix = */ util::cast<float>(matrix)};
         const HillshadePrepareTilePropsUBO tilePropsUBO = {
-            .unpack = getUnpackVector(drawableData.encoding),
+            .unpack = drawableData.unpack,
             .dimension = {static_cast<float>(drawableData.stride), static_cast<float>(drawableData.stride)},
             .zoom = static_cast<float>(tileID.canonical.z),
             .maxzoom = static_cast<float>(drawableData.maxzoom),

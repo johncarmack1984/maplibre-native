@@ -14,14 +14,28 @@ std::optional<SourceOptions> Converter<SourceOptions>::operator()(const Converti
             return {{.rasterEncoding = Tileset::RasterEncoding::Terrarium}};
         } else if (encoding && *encoding == "mapbox") {
             return {{.rasterEncoding = Tileset::RasterEncoding::Mapbox}};
+        } else if (encoding && *encoding == "custom") {
+            std::array<float, 4> factors{1, 1, 1, 0};
+            const std::array<const char*, 4> names{"redFactor", "greenFactor", "blueFactor", "baseShift"};
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (const auto factorValue = objectMember(value, names[i])) {
+                    const auto factor = toNumber(*factorValue);
+                    if (!factor) {
+                        error.message = std::string(names[i]) + " must be a number";
+                        return std::nullopt;
+                    }
+                    factors[i] = *factor;
+                }
+            }
+            return {{.rasterEncoding = Tileset::RasterEncoding::Custom, .rasterCustomFactors = factors}};
         } else if (encoding && *encoding == "mvt") {
             return {{.vectorEncoding = Tileset::VectorEncoding::Mapbox}};
         } else if (encoding && *encoding == "mlt") {
             return {{.vectorEncoding = Tileset::VectorEncoding::MLT}};
         } else {
             error.message =
-                "invalid encoding - valid types are 'mapbox' and 'terrarium' for raster sources, 'mvt' and 'mlt' for "
-                "vector sources";
+                "invalid encoding - valid types are 'mapbox', 'terrarium' and 'custom' for raster sources, "
+                "'mvt' and 'mlt' for vector sources";
             return std::nullopt;
         }
     }
