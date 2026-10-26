@@ -1114,6 +1114,12 @@ void TransformState::constrainCameraAndZoomToBounds(CameraOptions& requestedCame
     mln::LatLngBounds currentBounds = getLatLngBounds();
     mln::ScreenCoordinate neBounds = projection->project(currentBounds.northeast(), requestedScale);
     mln::ScreenCoordinate swBounds = projection->project(currentBounds.southwest(), requestedScale);
+    if (!projection->worldCoordinateHelper().wraps()) {
+        // The corners miss a box whose edges curve: use its world box, inside the square.
+        const double worldSize = Projection::worldSize(requestedScale);
+        neBounds = {std::min(centerWorldBox[2], 1.0) * worldSize, std::max(centerWorldBox[1], 0.0) * worldSize};
+        swBounds = {std::max(centerWorldBox[0], 0.0) * worldSize, std::min(centerWorldBox[3], 1.0) * worldSize};
+    }
     mln::ScreenCoordinate center = projection->project(centerLatLng, requestedScale);
     mln::ScreenCoordinate currentCenter = projection->project(getLatLng(), requestedScale);
 

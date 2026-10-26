@@ -5,6 +5,7 @@
 #include <mln/map/map_impl.hpp>
 #include <mln/map/transform.hpp>
 #include <mln/map/vertical_perspective_projection.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
 #include <mln/math/angles.hpp>
 #include <mln/math/log2.hpp>
 #include <mln/renderer/renderer_frontend.hpp>
@@ -209,6 +210,10 @@ CameraOptions Map::cameraForLatLngBounds(const LatLngBounds& bounds,
                                          const EdgeInsets& padding,
                                          const std::optional<double>& bearing,
                                          const std::optional<double>& pitch) const {
+    // In a world that does not wrap the box's edges can curve, as a parallel does around a pole: fit all of it.
+    if (!impl->transform.getState().getProjection().worldCoordinateHelper().wraps()) {
+        return cameraForLatLngs(latLngBoxSamples(bounds), padding, bearing, pitch);
+    }
     return cameraForLatLngs(
         {
             bounds.northwest(),

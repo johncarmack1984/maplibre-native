@@ -1,5 +1,6 @@
 #include <gmock/gmock.h>
 
+#include <mln/test/crs.hpp>
 #include <mln/test/util.hpp>
 #include <mln/test/stub_file_source.hpp>
 #include <mln/test/stub_map_observer.hpp>
@@ -204,6 +205,21 @@ TEST(Map, LatLngBoundsToCamera) {
     CameraOptions virtualCamera = test.map.cameraForLatLngBounds(bounds, {});
     ASSERT_TRUE(bounds.contains(*virtualCamera.center));
     EXPECT_NEAR(*virtualCamera.zoom, 1.55467, 1e-5);
+}
+
+TEST(Map, LatLngBoundsToCameraInAPolarProjection) {
+    addProjection(test::northPolarStereographic("test:polar-fit"));
+    {
+        MapTest<> test;
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-fit"}, "sources": {}, "layers": []})");
+
+        // Its corners are the pole and one point on its edge, but the cap north of 60N is a disc around the pole.
+        CameraOptions camera = test.map.cameraForLatLngBounds(LatLngBounds::hull({60, -180}, {90, 180}), {});
+        ASSERT_TRUE(camera.center);
+        EXPECT_NEAR(90, camera.center->latitude(), 1e-6);
+    }
+    removeProjection("test:polar-fit");
 }
 
 TEST(Map, LatLngBoundsToCameraWithExcessivePadding) {

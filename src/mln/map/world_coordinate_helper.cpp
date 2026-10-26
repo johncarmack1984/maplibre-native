@@ -58,6 +58,17 @@ constexpr int edgeSearchSteps = 30;
 // How many times as much as at the center of its tile matrix set a projection may stretch distances along the meridian.
 constexpr double maxMeridianStretch = 10;
 
+// How many parts a lat/lng box is cut into along each axis when it is sampled.
+constexpr int boxSampleSteps = 16;
+
+double boxLongitudeAt(const LatLngBounds& box, int step) {
+    return step == boxSampleSteps ? box.east() : box.west() + (box.east() - box.west()) * step / boxSampleSteps;
+}
+
+double boxLatitudeAt(const LatLngBounds& box, int step) {
+    return step == boxSampleSteps ? box.south() : box.north() + (box.south() - box.north()) * step / boxSampleSteps;
+}
+
 std::shared_ptr<const CRS> identityCRS() {
     static const auto crs = std::make_shared<const CRS>(
         CRS{.name = "identity",
@@ -182,37 +193,39 @@ double CRSWorldCoordinateHelper::meridianStretch(double longitude, double latitu
     return std::hypot(towardEquator[0] - position[0], towardEquator[1] - position[1]);
 }
 
+std::vector<LatLng> latLngBoxSamples(const LatLngBounds& box) {
+    std::vector<LatLng> samples;
+    samples.reserve((boxSampleSteps + 1) * (boxSampleSteps + 1));
+    for (int row = 0; row <= boxSampleSteps; ++row) {
+        for (int column = 0; column <= boxSampleSteps; ++column) {
+            samples.emplace_back(boxLatitudeAt(box, row), boxLongitudeAt(box, column));
+        }
+    }
+    return samples;
+}
+
 std::array<double, 4> latLngBoxToWorldBox(const WorldCoordinateHelper& helper, const LatLngBounds& box) {
     // The corners alone miss most of a box whose edges curve, as a parallel does around a pole.
-    constexpr int steps = 16;
-    const auto longitudeAt = [&](int step) {
-        return step == steps ? box.east() : box.west() + (box.east() - box.west()) * step / steps;
-    };
-    const auto latitudeAt = [&](int step) {
-        return step == steps ? box.south() : box.north() + (box.south() - box.north()) * step / steps;
-    };
+    std::vector<Point<double>> points;
+    points.reserve((boxSampleSteps + 1) * (boxSampleSteps + 1));
+    for (const LatLng& sample : latLngBoxSamples(box)) {
+        points.push_back(helper.worldFromLatLng(sample));
+    }
     const auto toPoint = [&](double longitude, double latitude) {
         return helper.worldFromLatLng({latitude, longitude});
     };
-    std::vector<Point<double>> points;
-    points.reserve((steps + 1) * (steps + 1));
-    for (int row = 0; row <= steps; ++row) {
-        for (int column = 0; column <= steps; ++column) {
-            points.push_back(toPoint(longitudeAt(column), latitudeAt(row)));
-        }
-    }
     const auto pointAt = [&](int row, int column) {
-        return points[row * (steps + 1) + column];
+        return points[row * (boxSampleSteps + 1) + column];
     };
     double bulge = 0;
-    for (int step = 0; step < steps; ++step) {
-        const double longitudeHalfway = (longitudeAt(step) + longitudeAt(step + 1)) / 2;
-        const double latitudeHalfway = (latitudeAt(step) + latitudeAt(step + 1)) / 2;
+    for (int step = 0; step < boxSampleSteps; ++step) {
+        const double longitudeHalfway = (boxLongitudeAt(box, step) + boxLongitudeAt(box, step + 1)) / 2;
+        const double latitudeHalfway = (boxLatitudeAt(box, step) + boxLatitudeAt(box, step + 1)) / 2;
         const std::array<std::array<Point<double>, 3>, 4> edges{{
             {pointAt(0, step), pointAt(0, step + 1), toPoint(longitudeHalfway, box.north())},
-            {pointAt(steps, step), pointAt(steps, step + 1), toPoint(longitudeHalfway, box.south())},
+            {pointAt(boxSampleSteps, step), pointAt(boxSampleSteps, step + 1), toPoint(longitudeHalfway, box.south())},
             {pointAt(step, 0), pointAt(step + 1, 0), toPoint(box.west(), latitudeHalfway)},
-            {pointAt(step, steps), pointAt(step + 1, steps), toPoint(box.east(), latitudeHalfway)},
+            {pointAt(step, boxSampleSteps), pointAt(step + 1, boxSampleSteps), toPoint(box.east(), latitudeHalfway)},
         }};
         for (const auto& [start, end, halfway] : edges) {
             const Point<double> chord = end - start;

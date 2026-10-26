@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace mln {
 
@@ -67,6 +68,9 @@ private:
     mutable std::once_flag latitudeRangeFlag;
     mutable std::array<double, 2> latitudeRange_{};
 };
+
+/// A lat/lng box sampled on a grid, 17 points on a side with its edges and corners, row by row from the north-west.
+std::vector<LatLng> latLngBoxSamples(const LatLngBounds&);
 
 /// The axis-aligned rectangle in the world square around a lat/lng box, as min x, min y, max x, max y: the box sampled
 /// on a grid, grown by how far its edges stray from the lines between neighboring samples. In Mercator that is the

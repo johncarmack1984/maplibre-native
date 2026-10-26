@@ -1,3 +1,4 @@
+#include <mln/test/crs.hpp>
 #include <mln/test/util.hpp>
 
 #include <mln/map/transform.hpp>
@@ -13,16 +14,6 @@ namespace {
 
 void useProjection(Transform& transform, const std::string& name) {
     transform.setProjectionDefinition(ProjectionDefinition::registeredProjection(name));
-}
-
-// Identity coordinates over a square twice as wide as the world, so a center can go past 180 degrees.
-CRS wideIdentity(std::string name) {
-    return {.name = std::move(name),
-            .forward = [](const std::array<double, 2>& lngLat) { return lngLat; },
-            .inverse = [](const std::array<double, 2>& position) -> std::optional<std::array<double, 2>> {
-                return position;
-            },
-            .tileMatrixSet = {.origin = {-360, 360}, .extentAtZoom0 = 720}};
 }
 
 } // namespace
@@ -137,7 +128,7 @@ TEST(TransformInTheIdentityProjection, CoversTheTileThatFillsTheView) {
 }
 
 TEST(TransformInARegisteredProjection, FliesPastTheAntimeridianWithoutWrapping) {
-    addProjection(wideIdentity("test:wide"));
+    addProjection(test::wideIdentity("test:wide"));
     Transform transform;
     transform.resize({512, 512});
     useProjection(transform, "test:wide");
@@ -160,4 +151,37 @@ TEST(TransformInARegisteredProjection, FallsBackToMercatorForAnUnknownName) {
 
     EXPECT_TRUE(transform.getState().getProjection().worldCoordinateHelper().wraps());
     EXPECT_NEAR(60, transform.getLatLng().latitude(), 1e-9);
+}
+
+TEST(TransformInARegisteredProjection, KeepsACenterInsideTheMaxBoundsOfAPolarCap) {
+    addProjection(test::northPolarStereographic("test:polar-cap"));
+    Transform transform;
+    transform.resize({512, 512});
+    useProjection(transform, "test:polar-cap");
+    transform.setLatLngBounds(LatLngBounds::hull({60, -180}, {90, 180}));
+    transform.jumpTo(CameraOptions().withCenter(LatLng{70, 45}).withZoom(3));
+
+    // The corners of the cap are the pole and a point on its edge; the cap's world box keeps the center where it is.
+    EXPECT_NEAR(70, transform.getLatLng().latitude(), 1e-6);
+    EXPECT_NEAR(45, transform.getLatLng().longitude(), 1e-6);
+    removeProjection("test:polar-cap");
+}
+
+TEST(TransformInARegisteredProjection, KeepsTheViewInsideThePolarCapInScreenMode) {
+    addProjection(test::northPolarStereographic("test:polar-screen"));
+    Transform transform;
+    transform.resize({512, 512});
+    useProjection(transform, "test:polar-screen");
+    transform.setLatLngBounds(LatLngBounds::hull({60, -180}, {90, 180}));
+    transform.setConstrainMode(ConstrainMode::Screen);
+    transform.easeTo(CameraOptions().withCenter(LatLng{61, 0}).withZoom(3));
+
+    // At 61N the bottom of the view would reach past the cap's world box, so the center moves toward the pole until the
+    // bottom of the view is on the box's edge.
+    EXPECT_GT(transform.getLatLng().latitude(), 61);
+    EXPECT_NEAR(0, transform.getLatLng().longitude(), 1e-6);
+    const auto& helper = transform.getState().getProjection().worldCoordinateHelper();
+    const auto box = latLngBoxToWorldBox(helper, LatLngBounds::hull({60, -180}, {90, 180}));
+    EXPECT_NEAR(box[3], helper.worldFromLatLng(transform.screenCoordinateToLatLng({256, 512})).y, 1e-6);
+    removeProjection("test:polar-screen");
 }
