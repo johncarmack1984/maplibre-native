@@ -2,6 +2,9 @@
 #include <mln/test/util.hpp>
 
 #include <mln/map/world_coordinate_helper.hpp>
+#include <mln/test/stub_geometry_tile_feature.hpp>
+#include <mln/tile/geometry_tile_data.hpp>
+#include <mln/tile/tile_id.hpp>
 #include <mln/util/crs.hpp>
 
 #include <cmath>
@@ -95,4 +98,18 @@ TEST(RemoveProjection, RemovesARegisteredProjection) {
 TEST(RemoveProjection, CannotRemoveTheIdentity) {
     EXPECT_THROW(removeProjection("identity"), std::invalid_argument);
     EXPECT_TRUE(getRegisteredProjection("identity"));
+}
+
+TEST(ConvertGeometry, ReturnsLatLngThroughTheProjection) {
+    const CRSWorldCoordinateHelper identity(getRegisteredProjection("identity"));
+    // The top-left and bottom-right corners of tile 1/1/0 of the identity: lng 0..90, lat 90..0.
+    const StubGeometryTileFeature feature(
+        {}, FeatureType::LineString, {{{0, 0}, {util::EXTENT, util::EXTENT}}}, PropertyMap{});
+
+    const auto geometry = convertGeometry(feature, CanonicalTileID(1, 1, 0), identity);
+    EXPECT_EQ((LineString<double>{{0, 90}, {90, 0}}), geometry.get<LineString<double>>());
+
+    // Mercator's corner of the same tile is at its latitude limit.
+    const auto mercator = convertGeometry(feature, CanonicalTileID(1, 1, 0));
+    EXPECT_NEAR(85.0511, mercator.get<LineString<double>>()[0].y, 1e-4);
 }

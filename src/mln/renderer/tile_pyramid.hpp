@@ -25,6 +25,7 @@
 namespace mln {
 
 class PaintParameters;
+class WorldCoordinateHelper;
 class TransformState;
 class RenderLayer;
 class RenderedQueryOptions;
@@ -64,7 +65,9 @@ public:
         const mat4& projMatrix,
         const mln::SourceFeatureState& featureState) const;
 
-    std::vector<Feature> querySourceFeatures(const SourceQueryOptions&, const GlobalStateMap*) const;
+    std::vector<Feature> querySourceFeatures(const SourceQueryOptions&,
+                                             const GlobalStateMap*,
+                                             const WorldCoordinateHelper&) const;
 
     void setCacheEnabled(bool);
     void reduceMemoryUse();

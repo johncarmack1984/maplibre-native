@@ -146,7 +146,8 @@ public:
         const GlobalStateMap* globalState,
         const std::unordered_map<std::string, const RenderLayer*>& layers,
         const OverscaledTileID& tileID,
-        const FeatureSortOrder& featureSortOrder) const;
+        const FeatureSortOrder& featureSortOrder,
+        const WorldCoordinateHelper& worldCoordinateHelper) const;
 
 private:
     void addFeature(std::unordered_map<std::string, std::vector<Feature>>& result,
@@ -159,7 +160,8 @@ private:
                     const TransformState& transformState,
                     float pixelsToTileUnits,
                     const TileProjector& projector,
-                    const SourceFeatureState* sourceFeatureState) const;
+                    const SourceFeatureState* sourceFeatureState,
+                    const WorldCoordinateHelper& worldCoordinateHelper) const;
 
     GridIndex<RefIndexedSubfeature> grid;
     unsigned int sortIndex = 0;

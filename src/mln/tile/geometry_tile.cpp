@@ -550,7 +550,8 @@ void GeometryTile::queryRenderedFeatures(std::unordered_map<std::string, std::ve
 
 void GeometryTile::querySourceFeatures(std::vector<Feature>& result,
                                        const SourceQueryOptions& options,
-                                       const GlobalStateMap* globalState) {
+                                       const GlobalStateMap* globalState,
+                                       const WorldCoordinateHelper& worldCoordinateHelper) {
     MLN_TRACE_FUNC();
 
     // Data not yet available, or tile is empty
@@ -581,7 +582,7 @@ void GeometryTile::querySourceFeatures(std::vector<Feature>& result,
                     continue;
                 }
 
-                result.emplace_back(convertFeature(*feature, id.canonical));
+                result.emplace_back(convertFeature(*feature, id.canonical, worldCoordinateHelper));
             }
         }
     }

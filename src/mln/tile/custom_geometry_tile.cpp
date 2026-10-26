@@ -71,7 +71,8 @@ void CustomGeometryTile::setNecessity(TileNecessity newNecessity) {
 
 void CustomGeometryTile::querySourceFeatures(std::vector<Feature>& result,
                                              const SourceQueryOptions& queryOptions,
-                                             const GlobalStateMap* globalState) {
+                                             const GlobalStateMap* globalState,
+                                             const WorldCoordinateHelper& worldCoordinateHelper) {
     const auto* data = getData();
     if (!data) {
         return;
@@ -92,7 +93,7 @@ void CustomGeometryTile::querySourceFeatures(std::vector<Feature>& result,
                 continue;
             }
 
-            result.push_back(convertFeature(*feature, id.canonical));
+            result.push_back(convertFeature(*feature, id.canonical, worldCoordinateHelper));
         }
     }
 }

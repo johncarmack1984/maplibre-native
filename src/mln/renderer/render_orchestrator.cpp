@@ -687,12 +687,14 @@ void RenderOrchestrator::queryRenderedSymbols(std::unordered_map<std::string, st
 
     for (auto wrappedQueryData : bucketQueryData) {
         auto& queryData = wrappedQueryData.get();
-        auto bucketSymbols = queryData.featureIndex->lookupSymbolFeatures(renderedSymbols[queryData.bucketInstanceId],
-                                                                          options,
-                                                                          globalState.get(),
-                                                                          crossTileSymbolIndexLayers,
-                                                                          queryData.tileID,
-                                                                          queryData.featureSortOrder);
+        auto bucketSymbols = queryData.featureIndex->lookupSymbolFeatures(
+            renderedSymbols[queryData.bucketInstanceId],
+            options,
+            globalState.get(),
+            crossTileSymbolIndexLayers,
+            queryData.tileID,
+            queryData.featureSortOrder,
+            transformState.getProjection().worldCoordinateHelper());
 
         for (auto layer : bucketSymbols) {
             auto& resultFeatures = resultsByLayer[layer.first];
@@ -782,7 +784,8 @@ std::vector<Feature> RenderOrchestrator::querySourceFeatures(const std::string& 
     const RenderSource* source = getRenderSource(sourceID);
     if (!source) return {};
 
-    return source->querySourceFeatures(options, globalState.get());
+    return source->querySourceFeatures(
+        options, globalState.get(), transformState.getProjection().worldCoordinateHelper());
 }
 
 FeatureExtensionValue RenderOrchestrator::queryFeatureExtensions(

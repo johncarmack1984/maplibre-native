@@ -597,11 +597,12 @@ std::unordered_map<std::string, std::vector<Feature>> TilePyramid::queryRendered
 }
 
 std::vector<Feature> TilePyramid::querySourceFeatures(const SourceQueryOptions& options,
-                                                      const GlobalStateMap* globalState) const {
+                                                      const GlobalStateMap* globalState,
+                                                      const WorldCoordinateHelper& worldCoordinateHelper) const {
     std::vector<Feature> result;
 
     for (const auto& pair : tiles) {
-        pair.second->querySourceFeatures(result, options, globalState);
+        pair.second->querySourceFeatures(result, options, globalState, worldCoordinateHelper);
     }
 
     return result;
