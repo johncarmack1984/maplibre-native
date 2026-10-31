@@ -240,6 +240,8 @@ std::optional<size_t> SymbolInstance::getDefaultHorizontalPlacedTextIndex() cons
 #if MLN_SYMBOL_GUARDS
 bool SymbolInstance::guardsEnabled() {
     static const bool enabled = [] {
+        // Apps set MLN_SYMBOL_GUARDS before the first map loads, and it is read once, here.
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
         const char* value = std::getenv("MLN_SYMBOL_GUARDS");
         return value != nullptr && std::string_view(value) == "1";
     }();
