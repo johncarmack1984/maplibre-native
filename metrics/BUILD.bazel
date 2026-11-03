@@ -24,10 +24,8 @@ filegroup(
         "linux-gcc8-release-style.json",
         "linux-opengl.json",
     ],
-    visibility = [
-        "//platform/ios/test/common:__pkg__",
-        "//render-test:__subpackages__",
-    ],
+    # Public: maplibre-native-next runs its Rust test runners on these.
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -35,7 +33,15 @@ filegroup(
     srcs = glob(["integration/expression-tests/**"]) + [
         "ignores/platform-all.json",
     ],
-    visibility = [
-        "//expression-test:__pkg__",
-    ],
+    # Public: maplibre-native-next runs its Rust test runners on these.
+    visibility = ["//visibility:public"],
+)
+
+# The macOS (Metal, WebGPU) baselines. maplibre-native-next's WebGPU port uses
+# them as an alternate expectation: like the C++ WebGPU and Metal backends it
+# triangulates fill outlines (MLN_TRIANGULATE_FILL_OUTLINES).
+filegroup(
+    name = "expectations-platform-macos",
+    srcs = glob(["expectations/platform-macos/**"]),
+    visibility = ["//visibility:public"],
 )

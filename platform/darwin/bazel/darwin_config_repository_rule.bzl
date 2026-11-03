@@ -1,7 +1,8 @@
 def _impl(ctx):
-    config_dir = ctx.workspace_root.get_child("platform", "darwin", "bazel")
-    config = config_dir.get_child("config.bzl")
-    example_config = config_dir.get_child("example_config.bzl")
+    # Resolve the files in this module, not in the root module, so that the
+    # rule also works when maplibre is used as a dependency.
+    example_config = ctx.path(Label("//platform/darwin:bazel/example_config.bzl"))
+    config = example_config.dirname.get_child("config.bzl")
 
     ctx.watch(config)
     ctx.watch(example_config)
