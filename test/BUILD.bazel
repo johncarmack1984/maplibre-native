@@ -85,9 +85,8 @@ filegroup(
     srcs = glob(
         ["fixtures/**/*"],
     ),
-    visibility = [
-        "//platform/ios/test/core:__pkg__",
-    ],
+    # Public: maplibre-native-next runs ported unit tests on these.
+    visibility = ["//visibility:public"],
 )
 
 cc_test(

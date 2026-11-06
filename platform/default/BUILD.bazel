@@ -150,16 +150,8 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    visibility = [
-        "//platform:__pkg__",
-        "//platform/darwin:__pkg__",
-        "//platform/ios:__pkg__",
-        "//platform/linux:__pkg__",
-        "//platform/macos:__pkg__",
-        "//plugins:__pkg__",
-        "//render-test:__pkg__",
-        "//test:__pkg__",
-    ],
+    # Public: maplibre-native-next links it into its differential tests.
+    visibility = ["//visibility:public"],
     deps = [
         ":utf_conversion",
         "//:mbgl-core",

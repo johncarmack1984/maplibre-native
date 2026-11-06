@@ -732,3 +732,92 @@ cc_library(
     strip_include_prefix = "sqlite/include",
     visibility = ["//visibility:public"],
 )
+
+# Used by maplibre-native-next's port of pixelmatch and its tests.
+filegroup(
+    name = "pixelmatch_fixtures",
+    srcs = glob(["maplibre-native-base/deps/pixelmatch-cpp/test/fixtures/*"]),
+    visibility = ["//visibility:public"],
+)
+
+# HarfBuzz's own test fonts, used by maplibre-native-next's HarfRust shaping
+# differential tests.
+filegroup(
+    name = "harfbuzz_test_fonts",
+    srcs = glob([
+        "harfbuzz/perf/fonts/*.ttf",
+        "harfbuzz/test/api/fonts/*.otf",
+        "harfbuzz/test/api/fonts/*.ttf",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+# Vendored libraries' test data, used by maplibre-native-next's ports and
+# differential tests.
+filegroup(
+    name = "vector-tile-fixtures",
+    srcs = glob(
+        [
+            "vector-tile/test/**/*.mvt",
+            "vector-tile/bench/mvt-bench-fixtures/fixtures/**",
+        ],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "protozero-test-data",
+    srcs = glob(
+        ["protozero/test/t/**/*.pbf"],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+# Test fixtures of the vendored geometry libraries, used by
+# maplibre-native-next's ports and differential tests.
+filegroup(
+    name = "earcut_fixtures",
+    srcs = glob(["earcut.hpp/test/fixtures/*.cpp"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "geojson_vt_fixtures",
+    srcs = glob([
+        "maplibre-native-base/deps/geojson-vt-cpp/test/fixtures/*",
+        "maplibre-native-base/deps/geojson-vt-cpp/data/*",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "geojson_fixtures",
+    srcs = glob(["maplibre-native-base/deps/geojson.hpp/test/fixtures/*.json"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "supercluster_fixtures",
+    srcs = glob(["supercluster/test/fixtures/*"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "kdbush_test_source",
+    srcs = ["kdbush.hpp/test.cpp"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "polylabel_fixtures",
+    srcs = glob(["polylabel/test/fixtures/*"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "cheap_ruler_fixtures",
+    srcs = glob(["maplibre-native-base/deps/cheap-ruler-cpp/test/fixtures/*"]),
+    visibility = ["//visibility:public"],
+)

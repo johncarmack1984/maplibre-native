@@ -63,6 +63,11 @@ cc_library(
 
 # Generate code required by the core
 
+# js_run_binary runs in the bin directory. When this module is a dependency of
+# another module (maplibre-native-next does this to test against the core), its
+# sources and outputs live under external/<repo> there.
+CODEGEN_ROOT = "external/" + repo_name() if repo_name() else "."
+
 js_run_binary(
     name = "generated_style_code",
     srcs = glob(
@@ -72,7 +77,7 @@ js_run_binary(
     outs = MLN_PUBLIC_GENERATED_STYLE_HEADERS +
            MLN_PRIVATE_GENERATED_STYLE_HEADERS +
            MLN_GENERATED_STYLE_SOURCE,
-    env = {"MLN_CODEGEN_ROOT": "."},
+    env = {"MLN_CODEGEN_ROOT": CODEGEN_ROOT},
     tool = ":generate-style-code-script",
     # Keep Node in the execution configuration when cross-compiling.
     use_execroot_entry_point = False,
@@ -87,7 +92,7 @@ js_run_binary(
     outs = MLN_GENERATED_SHADER_HEADERS +
            MLN_GENERATED_SHADER_SOURCE +
            MLN_GENERATED_OPENGL_SHADER_HEADERS,
-    env = {"MLN_CODEGEN_ROOT": "."},
+    env = {"MLN_CODEGEN_ROOT": CODEGEN_ROOT},
     tool = ":generate-shader-code-script",
     use_execroot_entry_point = False,
 )
@@ -313,6 +318,14 @@ exports_files(
         "LICENSE.md",
         "scripts/style-spec-reference/v8.json",
     ],
+    visibility = ["//visibility:public"],
+)
+
+# The WebGPU backend's WGSL sources. maplibre-native-next's Rust WebGPU backend
+# uses them unchanged.
+filegroup(
+    name = "webgpu-shader-headers",
+    srcs = glob(["include/mln/shaders/webgpu/*.hpp"]),
     visibility = ["//visibility:public"],
 )
 

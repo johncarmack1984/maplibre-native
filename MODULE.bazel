@@ -30,10 +30,13 @@ single_version_override(
     version = "4.1.0",
 )
 
-node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+# Not dev dependencies: //:BUILD.bazel loads @npm (style code generation), so
+# the core must still load when this module is used as a dependency, as
+# maplibre-native-next does for differential testing.
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
 node.toolchain(node_version = "24.18.0")
 
-npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
 npm.npm_translate_lock(
     name = "npm",
     data = ["package.json"],
@@ -125,7 +128,9 @@ register_toolchains(
     "//bazel/tools/shell:osx_sh_toolchain_exec",
 )
 
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+# Dev dependency: only //rustutils (--//:use_rust) needs these crates, and a
+# non-root crate_universe call would have to ship a generated lockfile.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//rustutils:Cargo.lock",
