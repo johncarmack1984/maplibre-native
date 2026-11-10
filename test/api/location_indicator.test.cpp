@@ -51,7 +51,9 @@ std::optional<ScreenCoordinate> redCentre(const PremultipliedImage& image) {
     return ScreenCoordinate{x / static_cast<double>(count), y / static_cast<double>(count)};
 }
 
-void expectPuckAtItsLocation(const std::string& projection) {
+void expectPuckAtItsLocation(const std::string& projection,
+                             const LatLng& location = {20.0, 20.0},
+                             float accuracyRadius = 1000000.0f) {
     // The Darwin layer manager does not register the location indicator; the SDKs draw their own puck.
     const mln::JSValue emptyObject(rapidjson::kObjectType);
     style::conversion::Error error;
@@ -72,10 +74,9 @@ void expectPuckAtItsLocation(const std::string& projection) {
         R"(},"sources":{},"layers":[{"id":"background","type":"background","paint":{"background-color":"white"}}]})");
     map.jumpTo(CameraOptions().withCenter(LatLng{0.0, 0.0}).withZoom(1.0));
 
-    const LatLng location{20.0, 20.0};
     auto puck = std::make_unique<LocationIndicatorLayer>("puck");
     puck->setLocation(std::array<double, 3>{{location.latitude(), location.longitude(), 0.0}});
-    puck->setAccuracyRadius(1000000.0f);
+    puck->setAccuracyRadius(accuracyRadius);
     puck->setAccuracyRadiusColor(Color::red());
     puck->setAccuracyRadiusBorderColor(Color::red());
     map.getStyle().addLayer(std::move(puck));
@@ -253,6 +254,11 @@ void expectGlobeHatAndShadowUpAndDown(const CameraOptions& camera, const LatLng&
 
 TEST(LocationIndicator, MercatorPuckAtItsLocation) {
     expectPuckAtItsLocation("mercator");
+}
+
+TEST(LocationIndicator, PuckAtItsLocationInARegisteredProjection) {
+    // Close enough to the center for the whole circle to be on screen in the identity world.
+    expectPuckAtItsLocation("identity", {15.0, 10.0}, 300000.0f);
 }
 
 // Bounds keep the center unwrapped, here past the antimeridian at 181 degrees; the puck is drawn, and hit, where it is.
