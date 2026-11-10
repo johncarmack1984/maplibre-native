@@ -179,7 +179,10 @@ double CRSWorldCoordinateHelper::findLatitudeLimit(double pole) const {
         return pole;
     }
     const double step = pole > center.latitude() ? 1 : -1;
-    for (double latitude = center.latitude(); std::abs(pole - latitude) > 1; latitude += step) {
+    // Whole degrees from the center toward the pole, up to a degree short of it.
+    const auto steps = static_cast<int>(std::ceil(std::abs(pole - center.latitude()) - 1));
+    for (int i = 0; i < steps; ++i) {
+        const double latitude = center.latitude() + (i * step);
         if (!(meridianStretch(center.longitude(), latitude + step) <= maxStretch)) {
             return latitude;
         }
