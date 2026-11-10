@@ -8,6 +8,8 @@
 #include <mln/util/crs.hpp>
 #include <mln/util/tile_cover.hpp>
 
+#include <algorithm>
+
 using namespace mln;
 
 namespace {
@@ -165,6 +167,26 @@ TEST(TransformInARegisteredProjection, KeepsACenterInsideTheMaxBoundsOfAPolarCap
     EXPECT_NEAR(70, transform.getLatLng().latitude(), 1e-6);
     EXPECT_NEAR(45, transform.getLatLng().longitude(), 1e-6);
     removeProjection("test:polar-cap");
+}
+
+TEST(TransformInARegisteredProjection, CoversTheSameTilesWhenTheCenterCrossesTheAntimeridian) {
+    addProjection(test::polarStereographic("test:polar-antimeridian"));
+    Transform transform;
+    transform.resize({512, 512});
+    useProjection(transform, "test:polar-antimeridian");
+    const auto coverAt = [&](const LatLng& center) {
+        transform.jumpTo(CameraOptions().withCenter(center).withZoom(2));
+        auto tiles = util::tileCover({.transformState = transform.getState()}, 2, {0, 22});
+        std::sort(tiles.begin(), tiles.end());
+        return tiles;
+    };
+
+    // The world does not wrap, so 179.9 E and 179.9 W at 72 N are a few hundred meters apart and see the same four
+    // tiles, which GL JS checks by not loading any tile again.
+    const auto east = coverAt({72, 179.9});
+    EXPECT_EQ(4u, east.size());
+    EXPECT_EQ(east, coverAt({72, -179.9}));
+    removeProjection("test:polar-antimeridian");
 }
 
 TEST(TransformInARegisteredProjection, KeepsTheViewInsideThePolarCapInScreenMode) {
