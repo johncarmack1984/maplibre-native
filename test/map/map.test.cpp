@@ -222,6 +222,29 @@ TEST(Map, LatLngBoundsToCameraInAPolarProjection) {
     removeProjection("test:polar-fit");
 }
 
+TEST(Map, MetersPerPixelInMercatorIsItsScaleAtTheLatitude) {
+    MapTest<> test;
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{40, -74}).withZoom(10.5));
+
+    EXPECT_DOUBLE_EQ(mln::Projection::getMetersPerPixelAtLatitude(55, 10.5), test.map.getMetersPerPixelAt({55, 20}));
+}
+
+TEST(Map, MetersPerPixelInARegisteredProjection) {
+    addProjection(test::polarStereographic("test:polar-scale"));
+    {
+        MapTest<> test;
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-scale"}, "sources": {}, "layers": []})");
+        test.map.jumpTo(CameraOptions().withCenter(LatLng{70, -45}).withZoom(4));
+
+        // The projection is true to scale at 70 N, so a pixel there spans the tile matrix set's 8388608 m at zoom 0
+        // over the world's width in pixels; Mercator's scale at 70 N would be about 1.6 times that.
+        const double expected = 8388608 / mln::Projection::worldSize(std::pow(2.0, 4));
+        EXPECT_NEAR(expected, test.map.getMetersPerPixelAt({70, -45}), expected * 1e-6);
+    }
+    removeProjection("test:polar-scale");
+}
+
 TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
     FixtureLog log;
     MapTest<> test;
