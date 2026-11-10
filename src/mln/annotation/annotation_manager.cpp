@@ -240,8 +240,7 @@ void AnnotationManager::updateData(const WorldCoordinateHelper& helper) {
     // Every built-in projection draws annotations as Mercator does.
     const bool registered = !isMercator(helper);
     if (projection ? (!registered || projection->name() != helper.name()) : registered) {
-        auto crs = registered ? getRegisteredProjection(helper.name()) : nullptr;
-        projection = crs ? std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs)) : nullptr;
+        projection = registered ? makeRegisteredWorldCoordinateHelper(helper.name()) : nullptr;
         worldSymbolsValid = false;
         dirty = true;
     }

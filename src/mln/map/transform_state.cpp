@@ -150,8 +150,8 @@ void TransformState::setRegisteredProjection(const std::string& name) {
     registeredProjection = name;
     std::shared_ptr<const WorldCoordinateHelper> helper = mercatorWorldCoordinateHelper();
     if (!name.empty()) {
-        if (auto crs = getRegisteredProjection(name)) {
-            helper = std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs));
+        if (auto registered = makeRegisteredWorldCoordinateHelper(name)) {
+            helper = std::move(registered);
         } else {
             Log::Warning(Event::General,
                          "Unknown projection name \"" + name + "\". Falling back to mercator projection.");

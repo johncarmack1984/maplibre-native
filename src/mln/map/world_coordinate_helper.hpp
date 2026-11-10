@@ -80,6 +80,9 @@ std::array<double, 4> latLngBoxToWorldBox(const WorldCoordinateHelper&, const La
 /// The CRS registered under `name`, `identity` included, or null.
 std::shared_ptr<const CRS> getRegisteredProjection(const std::string& name);
 
+/// A helper of its own for the projection registered under `name`, or null when none is (an empty name included).
+std::shared_ptr<const CRSWorldCoordinateHelper> makeRegisteredWorldCoordinateHelper(const std::string& name);
+
 /// Mercator keeps the formulas each call site had, so its answers stay bit for bit what they were.
 inline bool isMercator(const WorldCoordinateHelper& helper) {
     return &helper == mercatorWorldCoordinateHelper().get();

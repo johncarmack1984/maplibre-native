@@ -60,12 +60,6 @@ void tileCover(const Geometry& geometry, uint8_t z, Fn&& fn) {
     }
 }
 
-/// The registered projection a style names, or null for the built-in ones.
-std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection(const style::Parser& parser) {
-    auto crs = getRegisteredProjection(parser.projection.impl->registeredName());
-    return crs ? std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs)) : nullptr;
-}
-
 /// The tiles of a registered projection's grid that bounds cover at a zoom level; its zoom range is empty when they
 /// miss the world.
 util::TileRange worldTileRange(const CRSWorldCoordinateHelper& projection, const LatLngBounds& bounds, uint8_t z) {
@@ -225,7 +219,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
 
     style::Parser parser;
     parser.parse(*styleResponse->data);
-    const auto styleProjection = registeredProjection(parser);
+    const auto styleProjection = makeRegisteredWorldCoordinateHelper(parser.projection.impl->registeredName());
 
     result->requiredResourceCountIsPrecise = true;
 
@@ -331,7 +325,7 @@ void OfflineDownload::activateDownload() {
 
         style::Parser parser;
         parser.parse(*styleResponse.data);
-        projection = registeredProjection(parser);
+        projection = makeRegisteredWorldCoordinateHelper(parser.projection.impl->registeredName());
 
         auto tileServerOptions = onlineFileSource.getResourceOptions().tileServerOptions();
         parser.glyphURL = util::mapbox::canonicalizeGlyphURL(tileServerOptions, parser.glyphURL);

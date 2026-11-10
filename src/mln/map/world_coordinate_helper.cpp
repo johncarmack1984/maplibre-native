@@ -256,6 +256,11 @@ std::shared_ptr<const CRS> getRegisteredProjection(const std::string& name) {
     return it == registry().end() ? nullptr : it->second;
 }
 
+std::shared_ptr<const CRSWorldCoordinateHelper> makeRegisteredWorldCoordinateHelper(const std::string& name) {
+    auto crs = name.empty() ? nullptr : getRegisteredProjection(name);
+    return crs ? std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs)) : nullptr;
+}
+
 void addProjection(CRS crs) {
     if (crs.name.find(':') == std::string::npos) {
         throw std::invalid_argument("The projection name \"" + crs.name +

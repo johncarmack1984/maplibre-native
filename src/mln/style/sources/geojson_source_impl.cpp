@@ -109,10 +109,7 @@ std::shared_ptr<GeoJSONData> GeoJSONData::create(const GeoJSON& geoJSON,
                                                  std::shared_ptr<Scheduler> sequencedScheduler,
                                                  const Immutable<GeoJSONOptions>& options,
                                                  const std::string& projection) {
-    std::shared_ptr<const CRSWorldCoordinateHelper> helper;
-    if (auto crs = projection.empty() ? nullptr : getRegisteredProjection(projection)) {
-        helper = std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs));
-    }
+    const auto helper = makeRegisteredWorldCoordinateHelper(projection);
     const GeoJSON reprojected = helper ? reprojectGeoJSONToWorld(geoJSON, *helper) : GeoJSON{};
     const GeoJSON& data = helper ? reprojected : geoJSON;
     const auto inProjection = [&](GeoJSONData* created) {
