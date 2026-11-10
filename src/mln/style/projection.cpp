@@ -77,6 +77,10 @@ SubdivisionGranularitySetting Projection::Impl::getSubdivisionGranularity() cons
     return SubdivisionGranularitySetting::globe();
 }
 
+std::string Projection::Impl::registeredName() const {
+    return type.isConstant() ? type.asConstant().registered : std::string();
+}
+
 ProjectionDefinition Projection::Impl::evaluate(float zoom) const {
     const PropertyEvaluationParameters parameters(zoom);
     const auto definition = type.evaluate(

@@ -16,6 +16,9 @@ public:
     /// How finely tiles are subdivided for this projection, for the life of the style: anything that can render a
     /// globe at some zoom gets the globe granularity, so the Mercator hand-off at high zoom reuses the same tiles.
     SubdivisionGranularitySetting getSubdivisionGranularity() const;
+
+    /// The registered projection the style names as its plain type, or empty for the built-in ones.
+    std::string registeredName() const;
 };
 
 } // namespace style
