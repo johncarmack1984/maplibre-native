@@ -27,6 +27,27 @@ inline CRS northPolarStereographic(std::string name) {
             .tileMatrixSet = {.origin = {-4194304, 4194304}, .extentAtZoom0 = 8388608}};
 }
 
+/// GL JS's test polar stereographic projection: EPSG:3413's true scale at 70 N and central meridian at 45 W, on a
+/// sphere, with EPSG:3413's tile matrix set.
+inline CRS polarStereographic(std::string name) {
+    constexpr double degrees = 180 / std::numbers::pi;
+    static const double scale = 6378137 * (1 + std::sin(70 / degrees));
+    constexpr double centralLongitude = -45;
+    return {.name = std::move(name),
+            .forward =
+                [](const std::array<double, 2>& lngLat) {
+                    const double rho = scale * std::tan(std::numbers::pi / 4 - lngLat[1] / degrees / 2);
+                    const double angle = (lngLat[0] - centralLongitude) / degrees;
+                    return std::array<double, 2>{rho * std::sin(angle), -rho * std::cos(angle)};
+                },
+            .inverse = [](const std::array<double, 2>& position) -> std::optional<std::array<double, 2>> {
+                return std::array<double, 2>{
+                    centralLongitude + std::atan2(position[0], -position[1]) * degrees,
+                    90 - 2 * std::atan(std::hypot(position[0], position[1]) / scale) * degrees};
+            },
+            .tileMatrixSet = {.origin = {-4194304, 4194304}, .extentAtZoom0 = 8388608}};
+}
+
 /// Identity coordinates over a square twice as wide as the world, so a center can go past 180 degrees.
 inline CRS wideIdentity(std::string name) {
     return {.name = std::move(name),
