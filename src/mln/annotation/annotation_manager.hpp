@@ -19,6 +19,8 @@ class AnnotationTile;
 class AnnotationTileData;
 class SymbolAnnotationImpl;
 class ShapeAnnotationImpl;
+class WorldCoordinateHelper;
+class CRSWorldCoordinateHelper;
 
 namespace style {
 class Style;
@@ -41,7 +43,8 @@ public:
     void setStyle(style::Style&);
     void onStyleLoaded();
 
-    void updateData();
+    /// Refreshes the annotation tiles after a change, in the projection of the frame the helper belongs to.
+    void updateData(const WorldCoordinateHelper&);
 
     void addTile(AnnotationTile&);
     void removeTile(AnnotationTile&);
@@ -88,6 +91,12 @@ private:
     SymbolAnnotationMap symbolAnnotations;
     ShapeAnnotationMap shapeAnnotations;
     ImageMap images;
+
+    /// The registered projection the annotations are drawn in, or null for the built-in ones.
+    std::shared_ptr<const CRSWorldCoordinateHelper> projection;
+    /// The symbol annotations at their places in that projection's world square; empty until a tile needs them.
+    std::vector<std::pair<Point<double>, std::shared_ptr<const SymbolAnnotationImpl>>> worldSymbols;
+    bool worldSymbolsValid = false;
 
     std::unordered_set<AnnotationTile*> tiles;
     mapbox::base::WeakPtrFactory<AnnotationManager> weakFactory{this};

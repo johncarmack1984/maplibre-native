@@ -2,6 +2,7 @@
 
 #include <mln/annotation/annotation_manager.hpp>
 #include <mln/layermanager/layer_manager.hpp>
+#include <mln/map/projection_base.hpp>
 #include <mln/renderer/change_request.hpp>
 #include <mln/renderer/renderer_observer.hpp>
 #include <mln/renderer/render_source.hpp>
@@ -194,7 +195,8 @@ std::unique_ptr<RenderTree> RenderOrchestrator::createRenderTree(
 
     if (LayerManager::annotationsEnabled) {
         if (auto guard = updateParameters->annotationManager.lock(); updateParameters->annotationManager) {
-            updateParameters->annotationManager->updateData();
+            updateParameters->annotationManager->updateData(
+                updateParameters->transformState.getProjection().worldCoordinateHelper());
         }
     }
 
