@@ -34,13 +34,9 @@ mat4 LayerTweaker::getTileMatrix(const UnwrappedTileID& tileID,
     return getTileMatrix(tileID,
                          parameters.state,
                          parameters.transformParams,
-                         parameters.currentLayer,
                          translation,
                          anchor,
                          drawable.getOrigin(),
-                         drawable.getIs3D(),
-                         drawable.getEnableDepth(),
-                         drawable.getSubLayerIndex(),
                          nearClipped,
                          inViewportPixelUnits,
                          aligned);
@@ -49,13 +45,9 @@ mat4 LayerTweaker::getTileMatrix(const UnwrappedTileID& tileID,
 mat4 LayerTweaker::getTileMatrix(const UnwrappedTileID& tileID,
                                  const TransformState& transformState,
                                  const TransformParameters& transformParams,
-                                 const uint32_t currentLayerIndex,
                                  const std::array<float, 2>& translation,
                                  const style::TranslateAnchorType anchor,
                                  const std::optional<mln::Point<double>>& origin,
-                                 bool is3d,
-                                 bool useDepth,
-                                 std::int32_t subLayerIndex,
                                  bool nearClipped,
                                  bool inViewportPixelUnits,
                                  bool aligned) {
@@ -66,7 +58,7 @@ mat4 LayerTweaker::getTileMatrix(const UnwrappedTileID& tileID,
         matrix::translate(tileMatrix, tileMatrix, origin->x, origin->y, 0);
     }
     multiplyWithProjectionMatrix(
-        /*in-out*/ tileMatrix, transformParams, currentLayerIndex, is3d, useDepth, subLayerIndex, nearClipped, aligned);
+        /*in-out*/ tileMatrix, transformParams, nearClipped, aligned);
     return RenderTile::translateVtxMatrix(
         tileID, tileMatrix, translation, anchor, transformState, inViewportPixelUnits);
 }
@@ -86,14 +78,6 @@ ProjectionData LayerTweaker::getProjectionData(const UnwrappedTileID& tileID,
         data.translate = util::cast<double>(
             RenderTile::tileUnitTranslation(tileID, translation, anchor, parameters.state));
     }
-#if MLN_GLOBE_DEPTH_OFFSET_IN_SHADER
-    // The same per-layer shift `multiplyWithProjectionMatrix` bakes into the Mercator matrix.
-    if (!drawable.getIs3D() && drawable.getEnableDepth()) {
-        data.depthOffset = ((1 + parameters.currentLayer) * PaintParameters::numSublayers -
-                            drawable.getSubLayerIndex()) *
-                           PaintParameters::depthEpsilon;
-    }
-#endif
     return data;
 }
 
@@ -103,7 +87,7 @@ shaders::ProjectionUBO LayerTweaker::toProjectionUBO(const ProjectionData& data)
             .tile_mercator_coords = util::cast<float>(data.tileMercatorCoords),
             .clipping_plane = util::cast<float>(data.clippingPlane),
             .projection_transition = static_cast<float>(data.projectionTransition),
-            .depth_offset = static_cast<float>(data.depthOffset),
+            .pad1 = 0,
             .translate = util::cast<float>(data.translate)};
 }
 
@@ -133,46 +117,13 @@ void LayerTweaker::updateProperties(Immutable<style::LayerProperties> newProps) 
 }
 
 void LayerTweaker::multiplyWithProjectionMatrix(/*in-out*/ mat4& matrix,
-                                                const PaintParameters& parameters,
-                                                [[maybe_unused]] const gfx::Drawable& drawable,
-                                                bool nearClipped,
-                                                bool aligned) {
-    multiplyWithProjectionMatrix(matrix,
-                                 parameters.transformParams,
-                                 parameters.currentLayer,
-                                 drawable.getIs3D(),
-                                 drawable.getEnableDepth(),
-                                 drawable.getSubLayerIndex(),
-                                 nearClipped,
-                                 aligned);
-}
-
-void LayerTweaker::multiplyWithProjectionMatrix(/*in-out*/ mat4& matrix,
                                                 const TransformParameters& transformParams,
-                                                [[maybe_unused]] const uint32_t currentLayerIndex,
-                                                [[maybe_unused]] bool is3d,
-                                                [[maybe_unused]] bool useDepth,
-                                                [[maybe_unused]] std::int32_t subLayerIndex,
                                                 bool nearClipped,
                                                 bool aligned) {
     // nearClippedMatrix has near plane moved further, to enhance depth buffer precision
     const auto& projMatrixRef = aligned ? transformParams.alignedProjMatrix
                                         : (nearClipped ? transformParams.nearClippedProjMatrix
                                                        : transformParams.projMatrix);
-#if !MLN_RENDER_BACKEND_OPENGL
-    // If this drawable is participating in depth testing, offset the
-    // projection matrix NDC depth range for the drawable's layer and sublayer.
-    if (!is3d && useDepth) {
-        // copy and adjust the projection matrix
-        mat4 projMatrix = projMatrixRef;
-        projMatrix[14] -= ((1 + currentLayerIndex) * PaintParameters::numSublayers - subLayerIndex) *
-                          PaintParameters::depthEpsilon;
-        // multiply with the copy
-        matrix::multiply(matrix, projMatrix, matrix);
-        // early return
-        return;
-    }
-#endif
     matrix::multiply(matrix, projMatrixRef, matrix);
 }
 

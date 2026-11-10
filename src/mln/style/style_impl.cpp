@@ -265,6 +265,7 @@ void Style::Impl::addSource(std::unique_ptr<Source> source) {
     if (fileSource) {
         item->loadDescription(*fileSource);
     }
+    observer->onUpdate();
 }
 
 std::unique_ptr<Source> Style::Impl::removeSource(const std::string& id) {
@@ -280,6 +281,7 @@ std::unique_ptr<Source> Style::Impl::removeSource(const std::string& id) {
 
     if (source) {
         source->setObserver(nullptr);
+        observer->onUpdate();
     }
 
     return source;
@@ -365,7 +367,7 @@ void Style::Impl::setProjection(std::unique_ptr<Projection> projection_) {
     projection->setObserver(this);
     if constexpr (!util::GLOBE_ENABLED) {
         const auto type = projection->getType();
-        if (!type.isUndefined() && !(type.isConstant() && type.asConstant().transitionState() == 0)) {
+        if (!type.isUndefined() && (!type.isConstant() || type.asConstant().transitionState() != 0)) {
             Log::Warning(Event::Style,
                          "This build has no globe (MLN_WITH_GLOBE), so the style's projection draws as Mercator");
         }
@@ -454,6 +456,7 @@ void Style::Impl::removeImage(const std::string& id) {
     }
     newImages->erase(found);
     images = std::move(newImages);
+    observer->onUpdate();
 }
 
 std::optional<Immutable<style::Image::Impl>> Style::Impl::getImage(const std::string& id) const {

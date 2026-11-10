@@ -3,12 +3,17 @@
 ## main
 
 - Add runtime `Sky` style API support, including zoom expressions, transitions, and removal.
-- Make symbol guard checks opt-in, so symbol-dense tiles load faster. To keep them, set the environment variable `MLN_SYMBOL_GUARDS=1` before the first map loads.
 
 ### ✨ Features and improvements
 
 - feat(core): render the map as a globe when the style sets `"projection": {"type": "globe"}` ([#4533](https://github.com/maplibre/maplibre-native/pull/4533)).
+- feat(android): with rotate gestures enabled, drags and zooms on the globe turn the bearing with the planet, so the place under the finger stays under it over the poles and nothing spins about them ([#4533](https://github.com/maplibre/maplibre-native/pull/4533)).
 - feat(android): `Projection#isLocationOccluded` tells whether the globe hides a location, for views placed over the map; a selected marker behind the globe is deselected ([#4533](https://github.com/maplibre/maplibre-native/pull/4533)).
+- Make symbol guard checks opt-in, so symbol-dense tiles load faster. To keep them, set the environment variable `MLN_SYMBOL_GUARDS=1` before the first map loads.
+
+### 🐞 Bug fixes
+
+- `raster` and `raster-dem` sources loaded from a `url` take the style's inline `minzoom` and `maxzoom` over the TileJSON's, as `vector` sources and maplibre-gl-js already do. A `raster-dem` source with an invalid `encoding`, `minzoom` or `maxzoom`, or a `raster` source with an invalid `minzoom` or `maxzoom`, is now rejected with an error, as a `vector` source is. Before, such a `raster-dem` source still loaded, decoded as Mapbox whatever its `encoding` ([#4557](https://github.com/maplibre/maplibre-native/pull/4557)).
 
 ## 13.7.1
 
