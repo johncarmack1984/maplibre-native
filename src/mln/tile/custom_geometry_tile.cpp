@@ -1,8 +1,12 @@
 #include <mln/tile/custom_geometry_tile.hpp>
 #include <mln/tile/geojson_tile_data.hpp>
+#include <mln/map/projection_base.hpp>
+#include <mln/map/transform_state.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
 #include <mln/renderer/query.hpp>
 #include <mln/renderer/tile_parameters.hpp>
 #include <mln/actor/scheduler.hpp>
+#include <mln/util/geojson_reproject.hpp>
 #include <mln/util/string.hpp>
 #include <mln/tile/tile_observer.hpp>
 #include <mln/style/custom_tile_loader.hpp>
@@ -14,6 +18,15 @@
 
 namespace mln {
 
+namespace {
+
+std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection(const TileParameters& parameters) {
+    const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
+    return isMercator(helper) ? nullptr : makeRegisteredWorldCoordinateHelper(helper.name());
+}
+
+} // namespace
+
 CustomGeometryTile::CustomGeometryTile(const OverscaledTileID& overscaledTileID,
                                        std::string sourceID_,
                                        const TileParameters& parameters,
@@ -23,6 +36,7 @@ CustomGeometryTile::CustomGeometryTile(const OverscaledTileID& overscaledTileID,
     : GeometryTile(overscaledTileID, std::move(sourceID_), parameters, observer_),
       necessity(TileNecessity::Optional),
       options(std::move(options_)),
+      projection(registeredProjection(parameters)),
       loader(std::move(loader_)),
       mailbox(std::make_shared<Mailbox>(*Scheduler::GetCurrent())),
       actorRef(*this, mailbox) {}
@@ -49,10 +63,23 @@ void CustomGeometryTile::setTileData(const GeoJSON& geoJSON) {
         vtOptions.extent = util::EXTENT;
         vtOptions.buffer = static_cast<uint16_t>(::round(scale * options->buffer));
         vtOptions.tolerance = scale * options->tolerance;
-        featureData =
-            mapbox::geojsonvt::geoJSONToTile(
-                geoJSON, id.canonical.z, id.canonical.x, id.canonical.y, vtOptions, options->wrap, options->clip)
-                .features;
+        if (projection) {
+            // The data is in lat/lng; it is cut in the registered projection's world square, which does not wrap.
+            vtOptions.coordinates = mapbox::geojsonvt::Coordinates::UnitSquare;
+            featureData = mapbox::geojsonvt::geoJSONToTile(reprojectGeoJSONToWorld(geoJSON, *projection),
+                                                           id.canonical.z,
+                                                           id.canonical.x,
+                                                           id.canonical.y,
+                                                           vtOptions,
+                                                           false,
+                                                           options->clip)
+                              .features;
+        } else {
+            featureData =
+                mapbox::geojsonvt::geoJSONToTile(
+                    geoJSON, id.canonical.z, id.canonical.x, id.canonical.y, vtOptions, options->wrap, options->clip)
+                    .features;
+        }
     }
     setData(std::make_unique<GeoJSONTileData>(std::move(featureData)));
 }
