@@ -213,7 +213,7 @@ public:
 
     jni::jboolean isFullyLoaded(JNIEnv&);
 
-    jni::jdouble getMetersPerPixelAtLatitude(JNIEnv&, jni::jdouble, jni::jdouble);
+    jni::jdouble getMetersPerPixelAtLatitude(JNIEnv&, jni::jdouble);
 
     jni::Local<jni::Object<ProjectedMeters>> projectedMetersForLatLng(JNIEnv&, jni::jdouble, jni::jdouble);
 

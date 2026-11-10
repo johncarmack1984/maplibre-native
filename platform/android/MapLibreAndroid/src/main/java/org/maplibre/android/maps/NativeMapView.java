@@ -720,7 +720,7 @@ final class NativeMapView implements NativeMap {
     if (checkState("getMetersPerPixelAtLatitude")) {
       return 0;
     }
-    return nativeGetMetersPerPixelAtLatitude(lat, getZoom());
+    return nativeGetMetersPerPixelAtLatitude(lat);
   }
 
   @Override
@@ -1679,7 +1679,7 @@ final class NativeMapView implements NativeMap {
   private native void nativeSetReachability(boolean status);
 
   @Keep
-  private native double nativeGetMetersPerPixelAtLatitude(double lat, double zoom);
+  private native double nativeGetMetersPerPixelAtLatitude(double lat);
 
   @NonNull
   @Keep
