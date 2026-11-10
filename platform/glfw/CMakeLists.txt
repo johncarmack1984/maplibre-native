@@ -19,7 +19,7 @@ add_executable(
 
 
 set_property(
-    SOURCE ${PROJECT_SOURCE_DIR}/platform/glfw/glfw_view.cpp
+    SOURCE ${PROJECT_SOURCE_DIR}/platform/glfw/glfw_view.cpp ${PROJECT_SOURCE_DIR}/platform/glfw/main.cpp
     PROPERTY COMPILE_DEFINITIONS MLN_ASSETS_PATH=\"${PROJECT_SOURCE_DIR}/platform/glfw/assets/\"
 )
 

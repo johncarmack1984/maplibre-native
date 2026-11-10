@@ -1,3 +1,4 @@
+#include "arctic_projection.hpp"
 #include "glfw_view.hpp"
 #include "glfw_renderer_frontend.hpp"
 #include "settings_json.hpp"
@@ -132,6 +133,9 @@ int main(int argc, char* argv[]) {
     resourceOptions.withCachePath(cacheDB).withApiKey(apikey).withTileServerOptions(mapTilerConfiguration);
     mln::ClientOptions clientOptions;
     auto orderedStyles = mapTilerConfiguration.defaultStyles();
+    // A map in a registered projection: NASA GIBS imagery of the Arctic in EPSG:3413, last of the styles `S` cycles.
+    mln::addProjection(mln::epsg3413Projection());
+    orderedStyles.emplace_back("file://" MLN_ASSETS_PATH "arctic.json", "Arctic sea ice (EPSG:3413)", 1);
 
     GLFWView backend(fullscreen, benchmark, resourceOptions, clientOptions);
     view = &backend;
