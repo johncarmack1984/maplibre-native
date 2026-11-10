@@ -222,6 +222,28 @@ TEST(Map, LatLngBoundsToCameraInAPolarProjection) {
     removeProjection("test:polar-fit");
 }
 
+TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
+    FixtureLog log;
+    MapTest<> test;
+    test.map.getStyle().loadJSON(R"({"version": 8, "projection": {"type": "identity"},
+        "sources": {"points": {"type": "geojson", "data": {"type": "Point", "coordinates": [45, 45]}}},
+        "layers": [{"id": "points", "type": "circle", "source": "points"}]})");
+    test.frontend.render(test.map);
+    const FixtureLog::Message warning{
+        EventSeverity::Warning,
+        Event::General,
+        -1,
+        "GeoJSON source \"points\" is drawn in the wrong place: its data was tiled in the \"identity\" projection, so "
+        "set it again after changing the projection."};
+    EXPECT_EQ(0u, log.count(warning));
+
+    test.map.getStyle().setProjection(std::make_unique<style::Projection>());
+    test.frontend.render(test.map);
+    test.frontend.render(test.map);
+
+    EXPECT_EQ(1u, log.count(warning));
+}
+
 TEST(Map, LatLngBoundsToCameraWithExcessivePadding) {
     MapTest<> test;
 

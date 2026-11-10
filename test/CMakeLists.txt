@@ -109,6 +109,7 @@ add_library(
     ${PROJECT_SOURCE_DIR}/test/util/camera.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/color.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/geo.test.cpp
+    ${PROJECT_SOURCE_DIR}/test/util/geojson_reproject.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/grid_index.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/hash.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/http_timeout.test.cpp

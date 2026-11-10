@@ -20,6 +20,7 @@
 #include <mln/style/sources/raster_source.hpp>
 #include <mln/style/sources/vector_source.hpp>
 #include <mln/style/style.hpp>
+#include <mln/style/style_impl.hpp>
 
 #include <mln/renderer/sources/render_geojson_source.hpp>
 #include <mln/renderer/sources/render_raster_dem_source.hpp>
@@ -695,6 +696,131 @@ TEST(Source, GeoJSonSourceUrlUpdate) {
     });
 
     test.run();
+}
+
+namespace {
+
+GeoJSONData::TileFeatures rootTile(GeoJSONData& data) {
+    GeoJSONData::TileFeatures features;
+    data.getTile({0, 0, 0}, [&](GeoJSONData::TileFeatures result) { features = std::move(result); }, true);
+    return features;
+}
+
+std::string tiledIn(const Style& style, const std::string& sourceID) {
+    const auto data = style.getSource(sourceID)->as<GeoJSONSource>()->impl().getData().lock();
+    return data ? data->getProjection() : "no data";
+}
+
+constexpr auto identityStyle = R"({"version": 8, "projection": {"type": "identity"}, "sources": {}, "layers": []})";
+
+} // namespace
+
+TEST(Source, GeoJSONDataTilesTheDataWhereTheIdentityProjectionPutsIt) {
+    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"),
+                                          Scheduler::GetSequenced(),
+                                          GeoJSONOptions::defaultOptions(),
+                                          "identity");
+
+    EXPECT_EQ("identity", data->getProjection());
+    const auto features = rootTile(*data);
+    ASSERT_EQ(1u, features.size());
+    EXPECT_EQ((mapbox::geometry::point<int16_t>{6144, 2048}),
+              features[0].geometry.get<mapbox::geometry::point<int16_t>>());
+}
+
+TEST(Source, GeoJSONDataLeavesOutPointsOutsideTheWorldSquareOfARegisteredProjection) {
+    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
+                                              {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [-30, -30]}},
+                                              {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [150, 30]}}]})"),
+                                          Scheduler::GetSequenced(),
+                                          GeoJSONOptions::defaultOptions(),
+                                          "identity");
+
+    const auto features = rootTile(*data);
+    ASSERT_EQ(1u, features.size());
+    EXPECT_EQ((mapbox::geometry::point<int16_t>{2731, 5461}),
+              features[0].geometry.get<mapbox::geometry::point<int16_t>>());
+}
+
+TEST(Source, GeoJSONDataReturnsClusterLeavesInLatLngInARegisteredProjection) {
+    auto options = makeMutable<GeoJSONOptions>();
+    options->cluster = true;
+    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
+                                              {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [45, 45]}},
+                                              {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [45, 45]}}]})"),
+                                          Scheduler::GetSequenced(),
+                                          std::move(options),
+                                          "identity");
+
+    const auto features = rootTile(*data);
+    ASSERT_EQ(1u, features.size());
+    const auto clusterID = features[0].properties.at("cluster_id").get<uint64_t>();
+    const auto leaves = data->getLeaves(static_cast<uint32_t>(clusterID), 10, 0);
+    ASSERT_EQ(2u, leaves.size());
+    for (const auto& leaf : leaves) {
+        const auto& point = leaf.geometry.get<mapbox::geometry::point<double>>();
+        EXPECT_NEAR(45, point.x, 1e-9);
+        EXPECT_NEAR(45, point.y, 1e-9);
+    }
+}
+
+TEST(Source, GeoJSONSourceTilesDataItGotBeforeJoiningAStyleInTheStylesProjection) {
+    SourceTest test;
+    test.style.loadJSON(identityStyle);
+    const auto point = mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})");
+
+    auto copied = std::make_unique<GeoJSONSource>("copied");
+    copied->setGeoJSON(point);
+    auto moved = std::make_unique<GeoJSONSource>("moved");
+    moved->setGeoJSON(mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"));
+    EXPECT_FALSE(copied->impl().getData().lock());
+
+    test.style.addSource(std::move(copied));
+    test.style.addSource(std::move(moved));
+
+    EXPECT_EQ("identity", tiledIn(test.style, "copied"));
+    EXPECT_EQ("identity", tiledIn(test.style, "moved"));
+}
+
+TEST(Source, GeoJSONSourceTilesInlineDataInTheStylesProjection) {
+    SourceTest test;
+
+    test.style.loadJSON(R"({"version": 8, "projection": {"type": "identity"},
+        "sources": {"inline": {"type": "geojson", "data": {"type": "Point", "coordinates": [45, 45]}}}, "layers": []})");
+
+    EXPECT_EQ("identity", tiledIn(test.style, "inline"));
+}
+
+TEST(Source, GeoJSONSourceTilesDataFromAURLInTheStylesProjection) {
+    SourceTest test;
+    test.fileSource->sourceResponse = [&](const Resource&) {
+        Response response;
+        response.data = std::make_unique<std::string>(R"({"type": "Point", "coordinates": [45, 45]})");
+        return response;
+    };
+    test.style.loadJSON(identityStyle);
+    test.style.impl->setObserver(&test.styleObserver);
+    test.styleObserver.sourceLoaded = [&](Source&) {
+        test.end();
+    };
+
+    auto source = std::make_unique<GeoJSONSource>("url");
+    source->setURL("http://source-url.ext");
+    test.style.addSource(std::move(source));
+    test.run();
+
+    EXPECT_EQ("identity", tiledIn(test.style, "url"));
+}
+
+TEST(Source, GeoJSONSourceTilesDataInLatLngInABuiltInProjection) {
+    SourceTest test;
+    test.style.loadJSON(R"({"version": 8, "sources": {}, "layers": []})");
+
+    auto source = std::make_unique<GeoJSONSource>("source");
+    source->setGeoJSON(mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"));
+    test.style.addSource(std::move(source));
+
+    EXPECT_EQ("", tiledIn(test.style, "source"));
 }
 
 TEST(Source, ImageSourceImageUpdate) {

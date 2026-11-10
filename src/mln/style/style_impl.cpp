@@ -18,6 +18,7 @@
 #include <mln/style/observer.hpp>
 #include <mln/style/parser.hpp>
 #include <mln/style/source_impl.hpp>
+#include <mln/style/sources/geojson_source.hpp>
 #include <mln/style/style_impl.hpp>
 #include <mln/style/transition_options.hpp>
 #include <mln/util/async_request.hpp>
@@ -31,6 +32,16 @@
 
 namespace mln {
 namespace style {
+
+namespace {
+
+/// The registered projection the style's projection names, or empty for the built-in ones.
+std::string registeredProjectionName(const Projection& projection) {
+    const auto type = projection.getType();
+    return type.isConstant() ? type.asConstant().registered : std::string();
+}
+
+} // namespace
 
 Style::Impl::Impl(std::shared_ptr<FileSource> fileSource_, float pixelRatio, const TaggedScheduler& threadPool_)
     : fileSource(std::move(fileSource_)),
@@ -114,6 +125,8 @@ void Style::Impl::parse(const std::string& json_) {
     globalStateDefaults = parser.globalStateDefaults;
     globalState = std::make_shared<const GlobalStateMap>(globalStateDefaults);
 
+    setProjection(std::make_unique<Projection>(parser.projection));
+
     for (auto& source : parser.sources) {
         addSource(std::move(source));
     }
@@ -131,7 +144,6 @@ void Style::Impl::parse(const std::string& json_) {
     defaultCamera.roll = parser.roll;
 
     setLight(std::make_unique<Light>(parser.light));
-    setProjection(std::make_unique<Projection>(parser.projection));
 
     if (fileSource) {
         if (parser.sprites.empty()) {
@@ -260,6 +272,9 @@ void Style::Impl::addSource(std::unique_ptr<Source> source) {
 
     source->setObserver(this);
     auto item = sources.add(std::move(source));
+    if (auto* geoJSONSource = item->as<GeoJSONSource>()) {
+        geoJSONSource->setProjection(registeredProjectionName(*projection));
+    }
     if (fileSource) {
         item->loadDescription(*fileSource);
     }
@@ -533,7 +548,13 @@ void Style::Impl::onLightChanged(const Light&) {
     observer->onUpdate();
 }
 
-void Style::Impl::onProjectionChanged(const Projection&) {
+void Style::Impl::onProjectionChanged(const Projection& projection_) {
+    const auto registeredName = registeredProjectionName(projection_);
+    for (const auto& source : sources) {
+        if (auto* geoJSONSource = source->as<GeoJSONSource>()) {
+            geoJSONSource->setProjection(registeredName);
+        }
+    }
     observer->onUpdate();
 }
 
