@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <utility>
 
 namespace mln {
 namespace vulkan {
@@ -330,7 +331,7 @@ void Context::beginFrame() {
     }
 
     int8_t attempt = 0;
-    for (; attempt < maximumSurfaceUpdateRetries; ++attempt) {
+    for (; std::cmp_less(attempt, maximumSurfaceUpdateRetries); ++attempt) {
         if (!waitFrame()) {
             throw std::runtime_error("waitFrame failed");
         }
@@ -381,7 +382,7 @@ void Context::beginFrame() {
         break;
     }
 
-    if (attempt >= maximumSurfaceUpdateRetries) {
+    if (std::cmp_greater_equal(attempt, maximumSurfaceUpdateRetries)) {
         throw std::runtime_error("acquireNextImageKHR failed");
     }
 
@@ -666,8 +667,10 @@ bool Context::renderTileClippingMasks(gfx::RenderPass& renderPass,
     const auto& pipeline = shaderImpl.getPipeline(clipping.pipelineInfo);
 
     commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get(), dispatcher);
-    clipping.pipelineInfo.setScissorRect(
-        {0, 0, clipping.pipelineInfo.viewExtent.width, clipping.pipelineInfo.viewExtent.height});
+    clipping.pipelineInfo.setScissorRect({.x = 0,
+                                          .y = 0,
+                                          .width = static_cast<uint32_t>(clipping.pipelineInfo.viewport.width),
+                                          .height = static_cast<uint32_t>(clipping.pipelineInfo.viewport.height)});
     clipping.pipelineInfo.setDynamicValues(backend, commandBuffer);
 
     const std::array<vk::Buffer, 1> vertexBuffers = {clipping.vertexBuffer->getVulkanBuffer()};
@@ -773,7 +776,10 @@ bool Context::renderGlobeTileClippingMasks(gfx::RenderPass& renderPass,
 
     commandBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.get(), dispatcher);
     globeClipping.pipelineInfo.setScissorRect(
-        {0, 0, globeClipping.pipelineInfo.viewExtent.width, globeClipping.pipelineInfo.viewExtent.height});
+        {.x = 0,
+         .y = 0,
+         .width = static_cast<uint32_t>(globeClipping.pipelineInfo.viewport.width),
+         .height = static_cast<uint32_t>(globeClipping.pipelineInfo.viewport.height)});
     globeClipping.pipelineInfo.setDynamicValues(backend, commandBuffer);
 
     auto& renderableResource = renderPassImpl.getDescriptor().renderable.getResource<SurfaceRenderableResource>();
@@ -913,6 +919,7 @@ void Context::buildUniformDescriptorSetLayout(vk::UniqueDescriptorSetLayout& lay
 
 void Context::buildImageDescriptorSetLayout() {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    bindings.reserve(shaders::maxTextureCountPerShader);
 
     for (size_t i = 0; i < shaders::maxTextureCountPerShader; ++i) {
         bindings.push_back(vk::DescriptorSetLayoutBinding()

@@ -26,9 +26,7 @@ mln::LatLng screenCoordinateToLatLng(mln::ScreenCoordinate point,
     return state.screenCoordinateToLatLng(point, wrapMode);
 }
 mln::Point<double> project(const mln::LatLng& coordinate, const mln::TransformState& state) {
-    mln::LatLng unwrappedLatLng = coordinate.wrapped();
-    unwrappedLatLng.unwrapForShortestPath(state.getLatLng(mln::LatLng::Wrapped));
-    return mln::Projection::project(unwrappedLatLng, state.getScale());
+    return mln::Projection::project(state.latLngNearCenter(coordinate), state.getScale());
 }
 } // namespace
 
@@ -95,6 +93,9 @@ IndexedSubfeature::IndexedSubfeature(std::size_t index_,
       bucketLeaderIDCopy(std::move(bucketName_)) {}
 
 IndexedSubfeature& IndexedSubfeature::operator=(const IndexedSubfeature& other) {
+    if (this == &other) {
+        return *this;
+    }
     index = other.index;
     sourceLayerName = sourceLayerNameCopy;
     bucketLeaderID = bucketLeaderIDCopy;
@@ -375,7 +376,7 @@ void DynamicFeatureIndex::query(std::unordered_map<std::string, std::vector<Feat
 
 void DynamicFeatureIndex::insert(std::shared_ptr<Feature> feature,
                                  std::shared_ptr<mapbox::geometry::polygon<int64_t>> envelope) {
-    features.push_back({std::move(feature), std::move(envelope)});
+    features.push_back({.feature = std::move(feature), .envelope = std::move(envelope)});
 }
 
 } // namespace mln

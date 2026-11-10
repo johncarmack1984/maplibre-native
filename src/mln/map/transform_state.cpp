@@ -617,6 +617,14 @@ LatLng TransformState::getLatLng(LatLng::WrapMode wrapMode) const {
     return {util::rad2deg(2 * std::atan(std::exp(y / Cc)) - 0.5 * pi), -x / Bc, wrapMode};
 }
 
+LatLng TransformState::latLngNearCenter(const LatLng& latLng) const {
+    const LatLng center = getLatLng();
+    const LatLng wrappedCenter = center.wrapped();
+    LatLng nearest = latLng.wrapped();
+    nearest.unwrapForShortestPath(wrappedCenter);
+    return {nearest.latitude(), nearest.longitude() + center.longitude() - wrappedCenter.longitude()};
+}
+
 double TransformState::getCenterAltitude() const {
     return z * metersPerPixelAtCenter();
 }
@@ -1227,7 +1235,11 @@ void TransformState::moveLatLng(const LatLng& latLng, const ScreenCoordinate& an
     auto centerCoord = projection->project(getLatLng(LatLng::Unwrapped), scale);
     auto latLngCoord = projection->project(latLng, scale);
     auto anchorCoord = projection->project(screenCoordinateToLatLng(anchor), scale);
-    setLatLngZoom(projection->unproject(centerCoord + latLngCoord - anchorCoord, scale, LatLng::Unwrapped), getZoom());
+    const LatLng center = projection->unproject(centerCoord + latLngCoord - anchorCoord, scale, LatLng::Unwrapped);
+    // Wrapped, as easeTo and GL JS's setLocationAtPoint leave it, in a world that wraps, unless bounds keep it in
+    // their range.
+    const bool wrap = bounds == LatLngBounds() && projection->worldCoordinateHelper().wraps();
+    setLatLngZoom(wrap ? center.wrapped() : center, getZoom());
 }
 
 void TransformState::setLatLngZoom(const LatLng& latLng, double zoom) {

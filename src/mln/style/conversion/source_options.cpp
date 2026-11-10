@@ -1,4 +1,7 @@
 #include <mln/style/conversion/source_options.hpp>
+
+#include <limits>
+#include <string>
 #include <mln/style/conversion_impl.hpp>
 #include <mln/style/expression/dsl.hpp>
 
@@ -6,14 +9,35 @@ namespace mln {
 namespace style {
 namespace conversion {
 
+namespace {
+
+std::optional<uint8_t> zoomMember(const Convertible& value, const char* name, Error& error, bool& invalid) {
+    const auto member = objectMember(value, name);
+    if (!member) {
+        return std::nullopt;
+    }
+    const auto number = toNumber(*member);
+    if (!number || *number < 0 || *number > std::numeric_limits<uint8_t>::max()) {
+        error.message = std::string("invalid ") + name;
+        invalid = true;
+        return std::nullopt;
+    }
+    return static_cast<uint8_t>(*number);
+}
+
+} // namespace
+
 std::optional<SourceOptions> Converter<SourceOptions>::operator()(const Convertible& value, Error& error) const {
+    SourceOptions options;
+    bool any = false;
+
     const auto encodingValue = objectMember(value, "encoding");
     if (encodingValue) {
         const auto encoding = toString(*encodingValue);
         if (encoding && *encoding == "terrarium") {
-            return {{.rasterEncoding = Tileset::RasterEncoding::Terrarium}};
+            options.rasterEncoding = Tileset::RasterEncoding::Terrarium;
         } else if (encoding && *encoding == "mapbox") {
-            return {{.rasterEncoding = Tileset::RasterEncoding::Mapbox}};
+            options.rasterEncoding = Tileset::RasterEncoding::Mapbox;
         } else if (encoding && *encoding == "custom") {
             std::array<float, 4> factors{1, 1, 1, 0};
             const std::array<const char*, 4> names{"redFactor", "greenFactor", "blueFactor", "baseShift"};
@@ -27,19 +51,36 @@ std::optional<SourceOptions> Converter<SourceOptions>::operator()(const Converti
                     factors[i] = *factor;
                 }
             }
-            return {{.rasterEncoding = Tileset::RasterEncoding::Custom, .rasterCustomFactors = factors}};
+            options.rasterEncoding = Tileset::RasterEncoding::Custom;
+            options.rasterCustomFactors = factors;
         } else if (encoding && *encoding == "mvt") {
-            return {{.vectorEncoding = Tileset::VectorEncoding::Mapbox}};
+            options.vectorEncoding = Tileset::VectorEncoding::Mapbox;
         } else if (encoding && *encoding == "mlt") {
-            return {{.vectorEncoding = Tileset::VectorEncoding::MLT}};
+            options.vectorEncoding = Tileset::VectorEncoding::MLT;
         } else {
             error.message =
                 "invalid encoding - valid types are 'mapbox', 'terrarium' and 'custom' for raster sources, "
                 "'mvt' and 'mlt' for vector sources";
             return std::nullopt;
         }
+        any = true;
     }
-    return {};
+
+    bool invalid = false;
+    options.minzoom = zoomMember(value, "minzoom", error, invalid);
+    if (invalid) {
+        return std::nullopt;
+    }
+    options.maxzoom = zoomMember(value, "maxzoom", error, invalid);
+    if (invalid) {
+        return std::nullopt;
+    }
+    any = any || options.minzoom || options.maxzoom;
+
+    if (!any) {
+        return {};
+    }
+    return options;
 }
 
 } // namespace conversion

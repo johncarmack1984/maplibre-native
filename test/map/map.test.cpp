@@ -387,6 +387,44 @@ TEST(Map, CameraToLatLngBoundsUnwrappedCrossDateLine) {
     ASSERT_TRUE(test.map.latLngBoundsForCameraUnwrapped(camera).crossesAntimeridian());
 }
 
+TEST(Map, PixelForLatLngWithTheCenterPastTheAntimeridian) {
+    MapTest<> test;
+    test.map.setSize({512, 512});
+    test.map.setBounds(BoundOptions().withLatLngBounds(LatLngBounds::hull({-10.0, 170.0}, {10.0, 190.0})));
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{0.0, 181.0}).withZoom(4.0));
+    ASSERT_NEAR(181.0, test.map.getCameraOptions().center->longitude(), 1e-9);
+
+    // A degree is 512 * 2^4 / 360 pixels at zoom 4.
+    const double degree = 512.0 * 16.0 / 360.0;
+    const MapProjection projection(test.map);
+    for (const auto& [longitude, x] : {std::pair{179.0, 256.0 - 2 * degree}, std::pair{-179.5, 256.0 - 0.5 * degree}}) {
+        EXPECT_NEAR(x, test.map.pixelForLatLng({0.0, longitude}).x, 1e-6) << longitude;
+        EXPECT_NEAR(x, projection.pixelForLatLng({0.0, longitude}).x, 1e-6) << longitude;
+    }
+}
+
+// https://github.com/maplibre/maplibre-native/issues/3580
+// iOS ends a pan with a moveBy that has a duration while the gesture is still in progress. Across the antimeridian the
+// move starts a world away, and annotation views placed through pixelForLatLng vanished until the center crossed.
+TEST(Map, PixelForLatLngDuringAFlingAcrossTheAntimeridian) {
+    MapTest<> test{1, MapMode::Continuous};
+    test.map.setSize({512, 512});
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{0.0, 179.0}).withZoom(4.0));
+
+    const double degree = 512.0 * 16.0 / 360.0;
+    test.map.setGestureInProgress(true);
+    test.map.moveBy({-2.0 * degree, 0.0}, AnimationOptions(Seconds(10)));
+    const double center = test.map.getCameraOptions().center->longitude();
+    ASSERT_LT(center, -180.0);
+
+    const MapProjection projection(test.map);
+    for (const auto& [longitude, nearest] : {std::pair{179.5, -180.5}, std::pair{-179.5, -179.5}}) {
+        const double x = 256.0 + (nearest - center) * degree;
+        EXPECT_NEAR(x, test.map.pixelForLatLng({0.0, longitude}).x, 1e-6) << longitude;
+        EXPECT_NEAR(x, projection.pixelForLatLng({0.0, longitude}).x, 1e-6) << longitude;
+    }
+}
+
 TEST(Map, LatLngForPixelUnwrapped) {
     MapTest<> test;
     test.map.setSize({2048, 512});
@@ -416,6 +454,26 @@ TEST(Map, LatLngForPixelUnwrapped) {
     const MapProjection projection(test.map);
     EXPECT_DOUBLE_EQ(east.longitude(), projection.latLngForPixel({2048.0, 256.0}, LatLng::Unwrapped).longitude());
     EXPECT_NEAR(-135.0, projection.latLngForPixel({2048.0, 256.0}).longitude(), 1e-4);
+}
+
+// A zoom around a point keeps the place under it. Across the antimeridian the center comes back wrapped, as GL JS's
+// setLocationAtPoint leaves it, or pixelForLatLng puts every place a world away.
+TEST(Map, PixelForLatLngAfterZoomAroundAPointAcrossTheAntimeridian) {
+    MapTest<> test;
+    test.map.setSize({256, 256});
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{0.0, 179.9}).withZoom(5.0));
+
+    const ScreenCoordinate anchor{230.0, 128.0};
+    const LatLng place = test.map.latLngForPixel(anchor);
+    test.map.jumpTo(CameraOptions().withZoom(6.0).withAnchor(anchor));
+
+    EXPECT_LE(std::abs(test.map.getCameraOptions().center->longitude()), 180.0);
+    const ScreenCoordinate point = test.map.pixelForLatLng(place);
+    EXPECT_NEAR(anchor.x, point.x, 1e-6);
+    EXPECT_NEAR(anchor.y, point.y, 1e-6);
+    const ScreenCoordinate projected = MapProjection(test.map).pixelForLatLng(place);
+    EXPECT_NEAR(anchor.x, projected.x, 1e-6);
+    EXPECT_NEAR(anchor.y, projected.y, 1e-6);
 }
 
 TEST(Map, Offline) {
@@ -1391,7 +1449,7 @@ TEST(Map, GlobePrefetchRequestsCoarserTiles) {
     std::set<int> zooms;
     test.fileSource->tileResponse = [&](const Resource& resource) {
         if (resource.tileData) {
-            const std::lock_guard lock(mutex);
+            const std::scoped_lock lock(mutex);
             zooms.insert(resource.tileData->z);
         }
         Response res;
@@ -1404,7 +1462,7 @@ TEST(Map, GlobePrefetchRequestsCoarserTiles) {
     };
     test.runLoop.run();
 
-    const std::lock_guard lock(mutex);
+    const std::scoped_lock lock(mutex);
     EXPECT_TRUE(zooms.contains(4));
     EXPECT_TRUE(zooms.contains(8));
 }
@@ -1426,7 +1484,7 @@ TEST(Map, GlobeTileDrawnForItsChildrenMeetsFinerTilesWithoutAGap) {
     std::set<CanonicalTileID> served;
     test.fileSource->tileResponse = [&](const Resource& resource) -> std::optional<Response> {
         const auto& tile = *resource.tileData;
-        const std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         if (holdChildren && tile.z == 8 && tile.x / 2 == 20 && tile.y / 2 == 49) {
             return std::nullopt;
         }
@@ -1446,7 +1504,7 @@ TEST(Map, GlobeTileDrawnForItsChildrenMeetsFinerTilesWithoutAGap) {
     test.observer.didFinishLoadingMapCallback = nullptr;
 
     {
-        const std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         holdChildren = true;
         served.clear();
     }
@@ -1462,7 +1520,7 @@ TEST(Map, GlobeTileDrawnForItsChildrenMeetsFinerTilesWithoutAGap) {
             test.runLoop.stop();
             return;
         }
-        const std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         allParsed = !served.empty() && std::includes(parsed.begin(), parsed.end(), served.begin(), served.end());
     };
     test.map.jumpTo(CameraOptions().withZoom(8.2));
@@ -2327,7 +2385,7 @@ TEST(Map, GlobeKeepsItsTilesAcrossTheAntimeridian) {
     std::vector<OverscaledTileID> parsed;
     test.observer.onTileActionCallback = [&](TileOperation op, const OverscaledTileID& id, const std::string&) {
         if (op == TileOperation::StartParse) {
-            const std::lock_guard lock(mutex);
+            const std::scoped_lock lock(mutex);
             parsed.push_back(id);
         }
     };
@@ -2336,7 +2394,7 @@ TEST(Map, GlobeKeepsItsTilesAcrossTheAntimeridian) {
     (void)test.frontend.render(test.map);
     ASSERT_TRUE(test.map.getTransformState().isGlobeRendering());
     {
-        const std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         ASSERT_FALSE(parsed.empty());
         for (const auto& id : parsed) {
             ASSERT_EQ(OverscaledTileID(0, 0, 0, 0, 0), id);
@@ -2347,7 +2405,7 @@ TEST(Map, GlobeKeepsItsTilesAcrossTheAntimeridian) {
     test.map.jumpTo(CameraOptions().withCenter(LatLng{0, 181}));
     (void)test.frontend.render(test.map);
     EXPECT_NEAR(181.0, test.map.getTransformState().getLatLng().longitude(), 1e-9);
-    const std::lock_guard lock(mutex);
+    const std::scoped_lock lock(mutex);
     EXPECT_TRUE(parsed.empty()) << parsed.size() << " tiles parsed again, the first " << util::toString(parsed.front());
 }
 
@@ -2716,4 +2774,38 @@ TEST(Map, LocationIndicatorWithoutImages) {
 
     // Neither the accuracy circle nor any image should produce a draw call.
     EXPECT_EQ(test.frontend.render(test.map).stats.numDrawCalls, 0);
+}
+
+TEST(Map, TileSelectionOptionsPublishUpdates) {
+    util::RunLoop loop;
+    class Frontend final : public RendererFrontend {
+    public:
+        std::shared_ptr<UpdateParameters> parameters;
+        TaggedScheduler scheduler{Scheduler::GetBackground(), {}};
+        void reset() override {}
+        void setObserver(RendererObserver&) override {}
+        void update(std::shared_ptr<UpdateParameters> value) override { parameters = std::move(value); }
+        const TaggedScheduler& getThreadPool() const override { return scheduler; }
+    } frontend;
+    StubMapObserver observer;
+    MapAdapter map{
+        frontend, observer, std::make_shared<StubFileSource>(), MapOptions().withMapMode(MapMode::Continuous)};
+    map.getStyle().loadJSON(R"({"version":8,"sources":{},"layers":[]})");
+    ASSERT_TRUE(frontend.parameters);
+
+    const auto check = [&](auto setter, auto member, auto value) {
+        const auto before = frontend.parameters;
+        (map.*setter)(value);
+        EXPECT_NE(before, frontend.parameters);
+        EXPECT_EQ(value, frontend.parameters.get()->*member);
+        const auto after = frontend.parameters;
+        (map.*setter)(value);
+        EXPECT_EQ(after, frontend.parameters);
+    };
+    check(&Map::setPrefetchZoomDelta, &UpdateParameters::prefetchZoomDelta, uint8_t{2});
+    check(&Map::setTileLodMinRadius, &UpdateParameters::tileLodMinRadius, 4.0);
+    check(&Map::setTileLodScale, &UpdateParameters::tileLodScale, 2.0);
+    check(&Map::setTileLodPitchThreshold, &UpdateParameters::tileLodPitchThreshold, 0.5);
+    check(&Map::setTileLodZoomShift, &UpdateParameters::tileLodZoomShift, 1.0);
+    check(&Map::setTileLodMode, &UpdateParameters::tileLodMode, TileLodMode::Distance);
 }
