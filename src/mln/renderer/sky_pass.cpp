@@ -62,18 +62,21 @@ LayerGroupPtr makeFullscreenLayerGroup(gfx::Context& context,
     return layerGroup;
 }
 
+// The atmosphere traces rays in the globe's frame. Map lights are already in that frame;
+// viewport lights need the inverse of the globe-to-view rotation.
 std::array<float, 4> sunPosition(const EvaluatedLight& light, const TransformState& state, float blend) {
     const auto position = light.get<style::LightPosition>().getCartesian();
     vec4 sun = {{-position[0], -position[1], -position[2], 0.0}};
 
-    if (light.get<style::LightAnchor>() == style::LightAnchorType::Map) {
+    if (light.get<style::LightAnchor>() == style::LightAnchorType::Viewport) {
+        const auto center = state.getLatLng();
         mat4 matrix;
         matrix::identity(matrix);
-        matrix::rotate_z(matrix, matrix, state.getRoll());
-        matrix::rotate_x(matrix, matrix, -state.getPitch());
-        matrix::rotate_z(matrix, matrix, -state.getBearing());
-        matrix::rotate_x(matrix, matrix, state.getLatLng().latitude() * std::numbers::pi / 180.0);
-        matrix::rotate_y(matrix, matrix, -state.getLatLng().longitude() * std::numbers::pi / 180.0);
+        matrix::rotate_y(matrix, matrix, center.longitude() * std::numbers::pi / 180.0);
+        matrix::rotate_x(matrix, matrix, -center.latitude() * std::numbers::pi / 180.0);
+        matrix::rotate_z(matrix, matrix, state.getBearing());
+        matrix::rotate_x(matrix, matrix, state.getPitch());
+        matrix::rotate_z(matrix, matrix, -state.getRoll());
         matrix::transformMat4(sun, sun, matrix);
     }
 
