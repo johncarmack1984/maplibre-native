@@ -9,6 +9,7 @@
 #include <mln/util/projection.hpp>
 #include <mln/util/tile_coordinate.hpp>
 
+#include <algorithm>
 #include <numbers>
 
 using namespace std::numbers;
@@ -148,8 +149,24 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
                                      (std::abs(std::cos(roll)) + std::abs(std::sin(roll)) * size.width / size.height);
     const double tanMultiple = util::clamp(tanFovAboveCenter * std::tan(limitedPitch), 0.0, 0.99);
     assert(tanMultiple < 1);
+
+    // As in GL JS's `_calculateNearFarZ`, the map ends at the horizon and is drawn down to 100 m below the camera.
+    const double horizon = getMercatorHorizon();
+    const double horizonAngle = std::atan(horizon / cameraToCenterDistance);
+    const double minHorizonAngle = util::deg2rad(90.0) - maxMercatorHorizonAngle;
+    const double fovCenterToHorizon = horizonAngle > minHorizonAngle
+                                          ? 2.0 * horizonAngle * (0.5 + offset.y / (horizon * 2.0))
+                                          : minHorizonAngle;
+    const double horizonMultiple = util::clamp(std::tan(fovCenterToHorizon) * std::tan(limitedPitch), 0.0, 0.99);
+
+    constexpr double minRenderDistanceBelowCamera = 100.0;
+    const double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
+    const double cameraAltitude = (std::cos(getPitch()) * cameraToCenterDistance + z) / pixelsPerMeter;
+    const double minElevation = std::min({z / pixelsPerMeter, 0.0, cameraAltitude - minRenderDistanceBelowCamera});
+    const double lowestPlane = cameraToSeaLevelDistance - minElevation * pixelsPerMeter / std::cos(limitedPitch);
+
     // Calculate z distance of the farthest fragment that should be rendered.
-    const double furthestDistance = cameraToSeaLevelDistance / (1 - tanMultiple);
+    const double furthestDistance = lowestPlane / (1 - std::min(tanMultiple, horizonMultiple));
     // Add a bit extra to avoid precision problems when a fragment's distance is exactly `furthestDistance`
     const double farZ = furthestDistance * 1.01;
 
@@ -182,7 +199,6 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
         projMatrix[11] = 0.0;
 
         // mat[8], mat[9] control x-skew, y-skew
-        double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
         projMatrix[8] = xSkew * pixelsPerMeter;
         projMatrix[9] = ySkew * pixelsPerMeter;
     }
@@ -690,6 +706,11 @@ void TransformState::setRoll(double val) {
 
 float TransformState::getCameraToCenterDistance() const {
     return static_cast<float>(0.5 * size.height / std::tan(fov / 2.0));
+}
+
+double TransformState::getMercatorHorizon() const {
+    return getCameraToCenterDistance() *
+           std::min(std::tan(util::deg2rad(90.0) - pitch) * 0.85, std::tan(maxMercatorHorizonAngle - pitch));
 }
 
 double TransformState::getPitch() const {
