@@ -20,7 +20,7 @@ constexpr int32_t MaxActiveTextureUnits = 8;
 class Texture2D {
 public:
     struct SamplerState {
-        /// Minification and magnification filter within a single mip level
+        /// Magnification filter, and minification filter when not `mipmapped`
         TextureFilterType filter{TextureFilterType::Nearest};
         /// Wrapping behavior along U coordinate
         TextureWrapType wrapU{TextureWrapType::Clamp};
@@ -29,7 +29,8 @@ public:
 
         uint8_t maxAnisotropy{1};
         bool mipmapped{false};
-        /// How a minified sample picks between mip levels when `mipmapped`
+        /// How a minified sample of a `mipmapped` texture picks between levels. Within a level it filters linearly,
+        /// as the `LINEAR_MIPMAP_*` modes MapLibre GL JS uses for every mipmapped texture do.
         TextureFilterType mipmapFilter{TextureFilterType::Linear};
 
         bool operator==(const SamplerState&) const = default;

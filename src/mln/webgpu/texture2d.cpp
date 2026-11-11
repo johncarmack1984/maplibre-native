@@ -105,8 +105,9 @@ gfx::Texture2D& Texture2D::setSamplerConfiguration(const gfx::Texture2D::Sampler
     samplerDesc.label = samplerLabel;
 
     // Map filter modes
-    samplerDesc.minFilter = (samplerState.filter == gfx::TextureFilterType::Linear) ? WGPUFilterMode_Linear
-                                                                                    : WGPUFilterMode_Nearest;
+    samplerDesc.minFilter = (samplerState.filter == gfx::TextureFilterType::Linear || samplerState.mipmapped)
+                                ? WGPUFilterMode_Linear
+                                : WGPUFilterMode_Nearest;
     samplerDesc.magFilter = (samplerState.filter == gfx::TextureFilterType::Linear) ? WGPUFilterMode_Linear
                                                                                     : WGPUFilterMode_Nearest;
     samplerDesc.mipmapFilter = samplerState.mipmapFilter == gfx::TextureFilterType::Linear

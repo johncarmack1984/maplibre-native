@@ -231,7 +231,7 @@ MTL::Texture* Texture2D::getMetalTexture() const noexcept {
 
 void Texture2D::updateSamplerConfiguration() {
     auto samplerDescriptor = NS::TransferPtr(MTL::SamplerDescriptor::alloc()->init());
-    samplerDescriptor->setMinFilter(samplerState.filter == gfx::TextureFilterType::Nearest
+    samplerDescriptor->setMinFilter(samplerState.filter == gfx::TextureFilterType::Nearest && !samplerState.mipmapped
                                         ? MTL::SamplerMinMagFilterNearest
                                         : MTL::SamplerMinMagFilterLinear);
     samplerDescriptor->setMagFilter(samplerState.filter == gfx::TextureFilterType::Nearest

@@ -47,8 +47,7 @@ Texture2D::~Texture2D() {
 }
 
 gfx::Texture2D& Texture2D::setSamplerConfiguration(const SamplerState& samplerState_) noexcept {
-    if (samplerState.filter == samplerState_.filter && samplerState.wrapU == samplerState_.wrapU &&
-        samplerState.wrapV == samplerState_.wrapV) {
+    if (samplerState == samplerState_) {
         return *this;
     }
 
@@ -405,7 +404,7 @@ void Texture2D::createSampler() {
     const auto addressModeV = vulkanAddressMode(samplerState.wrapV);
 
     auto samplerCreateInfo = vk::SamplerCreateInfo()
-                                 .setMinFilter(filter)
+                                 .setMinFilter(samplerState.mipmapped ? vk::Filter::eLinear : filter)
                                  .setMagFilter(filter)
                                  .setMinLod(0.0f)
                                  .setMaxLod(static_cast<float>(getMipLevels() - 1))

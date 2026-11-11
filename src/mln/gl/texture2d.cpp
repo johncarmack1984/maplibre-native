@@ -107,9 +107,8 @@ void Texture2D::updateSamplerConfiguration() noexcept {
     const bool nearest = samplerState.filter == gfx::TextureFilterType::Nearest;
     GLint minFilter = nearest ? GL_NEAREST : GL_LINEAR;
     if (samplerState.mipmapped) {
-        const bool nearestMip = samplerState.mipmapFilter == gfx::TextureFilterType::Nearest;
-        minFilter = nearest ? (nearestMip ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST_MIPMAP_LINEAR)
-                            : (nearestMip ? GL_LINEAR_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+        minFilter = samplerState.mipmapFilter == gfx::TextureFilterType::Nearest ? GL_LINEAR_MIPMAP_NEAREST
+                                                                                 : GL_LINEAR_MIPMAP_LINEAR;
         if (!mipsGenerated && texture) {
             MBGL_CHECK_ERROR(glGenerateMipmap(GL_TEXTURE_2D));
             mipsGenerated = true;
