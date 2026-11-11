@@ -54,6 +54,8 @@ protected:
     gfx::TexturePixelType pixelFormat = gfx::TexturePixelType::RGBA;
     gfx::TextureChannelDataType channelType = gfx::TextureChannelDataType::UnsignedByte;
     SamplerState samplerState;
+
+    void writeLevel(const void* pixelData, Size levelSize, uint32_t mipLevel) noexcept;
     std::shared_ptr<PremultipliedImage> image;
     bool dirty = false;
     std::function<void(const Size&)> sizeChangedCallback;

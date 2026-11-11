@@ -1,3 +1,4 @@
+#include <mln/gfx/mip_levels.hpp>
 #include <mln/webgpu/texture2d.hpp>
 #include <mln/webgpu/context.hpp>
 #include <mln/webgpu/renderer_backend.hpp>
@@ -81,6 +82,15 @@ gfx::Texture2D& Texture2D::setSamplerConfiguration(const gfx::Texture2D::Sampler
     if (sampler && safeState == samplerState) {
         return *this;
     }
+    // The mip levels are part of the texture, so turning them on or off makes a new one at the next upload.
+    if (texture && safeState.mipmapped != samplerState.mipmapped) {
+        if (textureView) {
+            wgpuTextureViewRelease(textureView);
+            textureView = nullptr;
+        }
+        wgpuTextureRelease(texture);
+        texture = nullptr;
+    }
     samplerState = safeState;
 
     // Release old sampler if it exists
@@ -99,7 +109,9 @@ gfx::Texture2D& Texture2D::setSamplerConfiguration(const gfx::Texture2D::Sampler
                                                                                     : WGPUFilterMode_Nearest;
     samplerDesc.magFilter = (samplerState.filter == gfx::TextureFilterType::Linear) ? WGPUFilterMode_Linear
                                                                                     : WGPUFilterMode_Nearest;
-    samplerDesc.mipmapFilter = samplerState.mipmapped ? WGPUMipmapFilterMode_Linear : WGPUMipmapFilterMode_Nearest;
+    samplerDesc.mipmapFilter = samplerState.mipmapFilter == gfx::TextureFilterType::Linear
+                                   ? WGPUMipmapFilterMode_Linear
+                                   : WGPUMipmapFilterMode_Nearest;
 
     // Map wrap modes
     auto mapWrapMode = [](gfx::TextureWrapType wrap) -> WGPUAddressMode {
@@ -303,7 +315,7 @@ void Texture2D::create() noexcept {
     WGPUStringView textureLabel = {"Texture2D", strlen("Texture2D")};
     textureDesc.label = textureLabel;
     textureDesc.size = {static_cast<uint32_t>(size.width), static_cast<uint32_t>(size.height), 1};
-    textureDesc.mipLevelCount = 1;
+    textureDesc.mipLevelCount = samplerState.mipmapped ? gfx::mipLevelCount(size) : 1;
     textureDesc.sampleCount = 1;
     textureDesc.dimension = WGPUTextureDimension_2D;
     textureDesc.format = format;
@@ -324,7 +336,7 @@ void Texture2D::create() noexcept {
         viewDesc.format = format;
         viewDesc.dimension = WGPUTextureViewDimension_2D;
         viewDesc.baseMipLevel = 0;
-        viewDesc.mipLevelCount = 1;
+        viewDesc.mipLevelCount = textureDesc.mipLevelCount;
         viewDesc.baseArrayLayer = 0;
         viewDesc.arrayLayerCount = 1;
         viewDesc.aspect = WGPUTextureAspect_All;
@@ -361,23 +373,40 @@ void Texture2D::upload(const void* pixelData, const Size& size_) noexcept {
         return;
     }
 
-    const auto copyData = prepareCopyData(pixelData, size, getPixelStride());
-    if (!copyData.dataPtr) {
+    writeLevel(pixelData, size, 0);
+
+    if (samplerState.mipmapped && getPixelStride() == 4) {
+        std::vector<uint8_t> level;
+        const auto* pixels = static_cast<const uint8_t*>(pixelData);
+        Size levelSize = size;
+        for (uint32_t i = 1; i < gfx::mipLevelCount(size); ++i) {
+            level = gfx::downsampleRGBA8(pixels, levelSize, levelSize);
+            pixels = level.data();
+            writeLevel(pixels, levelSize, i);
+        }
+    }
+}
+
+void Texture2D::writeLevel(const void* pixelData, const Size levelSize, const uint32_t mipLevel) noexcept {
+    auto& backend = static_cast<RendererBackend&>(context.getBackend());
+    WGPUQueue queue = static_cast<WGPUQueue>(backend.getQueue());
+    const auto copyData = prepareCopyData(pixelData, levelSize, getPixelStride());
+    if (!queue || !copyData.dataPtr) {
         return;
     }
 
     WGPUTexelCopyTextureInfo destination = {};
     destination.texture = texture;
-    destination.mipLevel = 0;
+    destination.mipLevel = mipLevel;
     destination.origin = {0, 0, 0};
     destination.aspect = WGPUTextureAspect_All;
 
     WGPUTexelCopyBufferLayout dataLayout = {};
     dataLayout.offset = 0;
     dataLayout.bytesPerRow = copyData.bytesPerRow;
-    dataLayout.rowsPerImage = static_cast<uint32_t>(size.height);
+    dataLayout.rowsPerImage = levelSize.height;
 
-    WGPUExtent3D writeSize = {static_cast<uint32_t>(size.width), static_cast<uint32_t>(size.height), 1};
+    WGPUExtent3D writeSize = {levelSize.width, levelSize.height, 1};
 
     wgpuQueueWriteTexture(queue, &destination, copyData.dataPtr, copyData.dataSize, &dataLayout, &writeSize);
 }

@@ -1,3 +1,4 @@
+#include <mln/gfx/mip_levels.hpp>
 #include <mln/vulkan/texture2d.hpp>
 #include <mln/vulkan/context.hpp>
 #include <mln/vulkan/render_pass.hpp>
@@ -413,7 +414,9 @@ void Texture2D::createSampler() {
                                  .setAddressModeW(vk::SamplerAddressMode::eRepeat);
 
     if (samplerState.mipmapped) {
-        samplerCreateInfo.setMipmapMode(vk::SamplerMipmapMode::eLinear);
+        samplerCreateInfo.setMipmapMode(samplerState.mipmapFilter == gfx::TextureFilterType::Nearest
+                                            ? vk::SamplerMipmapMode::eNearest
+                                            : vk::SamplerMipmapMode::eLinear);
     }
 
     if (samplerState.maxAnisotropy != 1 && backend.getDeviceFeatures().samplerAnisotropy) {
@@ -769,11 +772,7 @@ std::shared_ptr<PremultipliedImage> Texture2D::readImage() {
 }
 
 uint32_t Texture2D::getMipLevels() const {
-    if (samplerState.mipmapped && size.width > 0 && size.height > 0) {
-        return static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height))) + 1);
-    }
-
-    return 1;
+    return samplerState.mipmapped ? gfx::mipLevelCount(size) : 1;
 }
 
 void Texture2D::generateMips(const vk::UniqueCommandBuffer& buffer) {

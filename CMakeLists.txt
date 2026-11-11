@@ -507,6 +507,8 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/cull_face_mode.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/index_buffer.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/index_vector.hpp
+    ${PROJECT_SOURCE_DIR}/src/mln/gfx/mip_levels.cpp
+    ${PROJECT_SOURCE_DIR}/src/mln/gfx/mip_levels.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/offscreen_texture.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/polyline_generator.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/gfx/fill_generator.cpp

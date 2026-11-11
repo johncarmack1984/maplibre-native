@@ -67,6 +67,7 @@ private:
     MTL::PixelFormat getMetalPixelFormat() const noexcept;
     void createMetalTexture();
     void destroyMetalTexture() noexcept;
+    void uploadMipLevels(const void* pixelData);
 
     Context& context;
     MTLTexturePtr metalTexture;

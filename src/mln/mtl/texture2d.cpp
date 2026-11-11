@@ -1,3 +1,4 @@
+#include <mln/gfx/mip_levels.hpp>
 #include <mln/mtl/texture2d.hpp>
 #include <mln/mtl/context.hpp>
 #include <mln/mtl/render_pass.hpp>
@@ -18,11 +19,12 @@ Texture2D::~Texture2D() {
 }
 
 gfx::Texture2D& Texture2D::setSamplerConfiguration(const SamplerState& samplerState_) noexcept {
-    if (samplerState.filter == samplerState_.filter && samplerState.wrapU == samplerState_.wrapU &&
-        samplerState.wrapV == samplerState_.wrapV) {
+    if (samplerState == samplerState_) {
         return *this;
     }
 
+    // The mip levels are part of the texture, so turning them on or off makes a new one.
+    textureDirty = textureDirty || samplerState.mipmapped != samplerState_.mipmapped;
     samplerState = samplerState_;
     samplerStateDirty = true;
     return *this;
@@ -159,7 +161,7 @@ void Texture2D::createMetalTexture() {
 
     // Create a new texture object
     if (auto textureDescriptor = NS::RetainPtr(
-            MTL::TextureDescriptor::texture2DDescriptor(format, size.width, size.height, /*mipmapped=*/false))) {
+            MTL::TextureDescriptor::texture2DDescriptor(format, size.width, size.height, samplerState.mipmapped))) {
         textureDescriptor->setUsage(usage);
 #if TARGET_OS_SIMULATOR || defined(__x86_64__)
         switch (format) {
@@ -235,6 +237,10 @@ void Texture2D::updateSamplerConfiguration() {
     samplerDescriptor->setMagFilter(samplerState.filter == gfx::TextureFilterType::Nearest
                                         ? MTL::SamplerMinMagFilterNearest
                                         : MTL::SamplerMinMagFilterLinear);
+    samplerDescriptor->setMipFilter(!samplerState.mipmapped ? MTL::SamplerMipFilterNotMipmapped
+                                    : samplerState.mipmapFilter == gfx::TextureFilterType::Nearest
+                                        ? MTL::SamplerMipFilterNearest
+                                        : MTL::SamplerMipFilterLinear);
     samplerDescriptor->setSAddressMode(samplerState.wrapU == gfx::TextureWrapType::Clamp
                                            ? MTL::SamplerAddressModeClampToEdge
                                            : MTL::SamplerAddressModeRepeat);
@@ -277,6 +283,22 @@ void Texture2D::upload(const void* pixelData, const Size& size_) {
     }
     if (pixelData) {
         uploadSubRegion(pixelData, size, 0, 0);
+        uploadMipLevels(pixelData);
+    }
+}
+
+void Texture2D::uploadMipLevels(const void* pixelData) {
+    if (!samplerState.mipmapped || getPixelStride() != 4) {
+        return;
+    }
+    std::vector<uint8_t> level;
+    const auto* pixels = static_cast<const uint8_t*>(pixelData);
+    Size levelSize = size;
+    for (NS::UInteger i = 1; i < metalTexture->mipmapLevelCount(); ++i) {
+        level = gfx::downsampleRGBA8(pixels, levelSize, levelSize);
+        pixels = level.data();
+        metalTexture->replaceRegion(
+            MTL::Region::Make2D(0, 0, levelSize.width, levelSize.height), i, pixels, levelSize.width * 4);
     }
 }
 

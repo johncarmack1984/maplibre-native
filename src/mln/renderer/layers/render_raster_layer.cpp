@@ -156,7 +156,8 @@ void RenderRasterLayer::update(gfx::ShaderRegistry& shaders,
         return builder;
     };
 
-    const auto setTextures = [&](gfx::UniqueDrawableBuilder& builder, RasterBucket& bucket) {
+    // As in GL JS, raster tiles are sampled through mipmaps and image sources are not.
+    const auto setTextures = [&](gfx::UniqueDrawableBuilder& builder, RasterBucket& bucket, const bool mipmapped) {
         if (bucket.image) {
             if (!bucket.texture2d) {
                 if (auto tex = context.createTexture2D()) {
@@ -173,7 +174,7 @@ void RenderRasterLayer::update(gfx::ShaderRegistry& shaders,
                 bucket.texture2d->setSamplerConfiguration({.filter = filter,
                                                            .wrapU = gfx::TextureWrapType::Clamp,
                                                            .wrapV = gfx::TextureWrapType::Clamp,
-                                                           .mipmapped = true,
+                                                           .mipmapped = mipmapped,
                                                            .mipmapFilter = gfx::TextureFilterType::Nearest});
 
                 builder->setTexture(bucket.texture2d, idRasterImage0Texture);
@@ -258,7 +259,7 @@ void RenderRasterLayer::update(gfx::ShaderRegistry& shaders,
             builder = createBuilder();
             for (const auto& matrix_ : imageData->matrices) {
                 buildVertexData(builder, /*drawable=*/nullptr, bucket);
-                setTextures(builder, bucket);
+                setTextures(builder, bucket, /*mipmapped=*/false);
 
                 // finish
                 builder->flush(context);
@@ -353,7 +354,7 @@ void RenderRasterLayer::update(gfx::ShaderRegistry& shaders,
 
             if (bucket.image && !builder->getTexture(idRasterImage0Texture) &&
                 !builder->getTexture(idRasterImage1Texture)) {
-                setTextures(builder, bucket);
+                setTextures(builder, bucket, /*mipmapped=*/true);
             };
 
             buildVertexData(builder, /*drawable=*/nullptr, bucket);

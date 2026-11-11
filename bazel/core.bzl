@@ -151,6 +151,8 @@ MLN_CORE_SOURCE = [
     "src/mln/gfx/fill_generator.cpp",
     "src/mln/gfx/index_buffer.hpp",
     "src/mln/gfx/index_vector.hpp",
+    "src/mln/gfx/mip_levels.cpp",
+    "src/mln/gfx/mip_levels.hpp",
     "src/mln/gfx/offscreen_texture.hpp",
     "src/mln/gfx/polyline_generator.cpp",
     "src/mln/gfx/render_pass.hpp",
