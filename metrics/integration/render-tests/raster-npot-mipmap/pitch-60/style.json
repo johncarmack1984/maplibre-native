@@ -2,9 +2,10 @@
   "version": 8,
   "metadata": {
     "test": {
+      "allowed": 0.002,
       "height": 256,
       "width": 256,
-      "description": "Non-power-of-two raster tile (300x200) with 1px checkerboard at high pitch. Without mipmaps the distant tiles alias into moire patterns. With mipmaps they blend smoothly to grey."
+      "description": "Non-power-of-two raster tile (300x200) with 1px checkerboard at high pitch. Without mipmaps the distant tiles alias into moire patterns. With mipmaps they blend smoothly to grey. Distant raster tiles are sampled through mipmaps, and GPUs pick the mip level a little differently; 0.002 covers that."
     }
   },
   "center": [0, 30],

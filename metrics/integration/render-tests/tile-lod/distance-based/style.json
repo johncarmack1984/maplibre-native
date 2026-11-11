@@ -2,6 +2,8 @@
   "version": 8,
   "metadata": {
     "test": {
+      "allowed": 0.002,
+      "description": "Distant raster tiles are sampled through mipmaps, and GPUs pick the mip level a little differently; 0.002 covers that.",
       "maxPitch": 85,
       "operations": [
           ["setTileLodMode", "distance"],

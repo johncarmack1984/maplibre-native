@@ -112,6 +112,9 @@ gfx::Texture2D& Texture2D::setSamplerConfiguration(const gfx::Texture2D::Sampler
     samplerDesc.mipmapFilter = samplerState.mipmapFilter == gfx::TextureFilterType::Linear
                                    ? WGPUMipmapFilterMode_Linear
                                    : WGPUMipmapFilterMode_Nearest;
+    // WebGPU's default level range: a zeroed descriptor would clamp every sample to level 0.
+    samplerDesc.lodMinClamp = 0.0f;
+    samplerDesc.lodMaxClamp = 32.0f;
 
     // Map wrap modes
     auto mapWrapMode = [](gfx::TextureWrapType wrap) -> WGPUAddressMode {
