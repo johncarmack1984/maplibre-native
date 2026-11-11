@@ -857,6 +857,7 @@ MLN_CORE_HEADERS = [
     "include/mln/util/constants.hpp",
     "include/mln/util/containers.hpp",
     "include/mln/util/convert.hpp",
+    "include/mln/util/crs.hpp",
     "include/mln/util/default_style.hpp",
     "include/mln/util/enum.hpp",
     "include/mln/util/event.hpp",

@@ -443,6 +443,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mln/util/constants.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/containers.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/convert.hpp
+    ${PROJECT_SOURCE_DIR}/include/mln/util/crs.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/default_style.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/enum.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/event.hpp
