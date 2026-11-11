@@ -159,10 +159,11 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
                                           : minHorizonAngle;
     const double horizonMultiple = util::clamp(std::tan(fovCenterToHorizon) * std::tan(limitedPitch), 0.0, 0.99);
 
-    constexpr double minRenderDistanceBelowCamera = 100.0;
+    constexpr double minRenderDistanceBelowCameraInMeters = 100.0;
     const double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
     const double cameraAltitude = (std::cos(getPitch()) * cameraToCenterDistance + z) / pixelsPerMeter;
-    const double minElevation = std::min({z / pixelsPerMeter, 0.0, cameraAltitude - minRenderDistanceBelowCamera});
+    const double minElevation = std::min(
+        {z / pixelsPerMeter, 0.0, cameraAltitude - minRenderDistanceBelowCameraInMeters});
     const double lowestPlane = cameraToSeaLevelDistance - minElevation * pixelsPerMeter / std::cos(limitedPitch);
 
     // Calculate z distance of the farthest fragment that should be rendered.
