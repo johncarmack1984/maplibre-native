@@ -83,8 +83,7 @@ std::string Projection::Impl::registeredName() const {
 
 ProjectionDefinition Projection::Impl::evaluate(float zoom) const {
     const PropertyEvaluationParameters parameters(zoom);
-    const auto definition = type.evaluate(
-        PropertyEvaluator<ProjectionDefinition>(parameters, Projection::getDefaultType()));
+    auto definition = type.evaluate(PropertyEvaluator<ProjectionDefinition>(parameters, Projection::getDefaultType()));
     if (definition.from != ProjectionType::Globe && definition.to != ProjectionType::Globe) {
         return definition;
     }
