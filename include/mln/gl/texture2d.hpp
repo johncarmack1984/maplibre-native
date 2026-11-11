@@ -77,6 +77,7 @@ private:
     Size size{0, 0};
     bool samplerStateDirty{false};
     bool storageDirty{false};
+    bool mipsGenerated{false};
 
     int32_t boundTextureUnit{-1};
     int32_t boundLocation{-1};

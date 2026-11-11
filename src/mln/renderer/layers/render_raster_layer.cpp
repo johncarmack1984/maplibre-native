@@ -170,8 +170,11 @@ void RenderRasterLayer::update(gfx::ShaderRegistry& shaders,
                 const bool nearest = evaluated.get<RasterResampling>() == RasterResamplingType::Nearest;
                 const auto filter = nearest ? gfx::TextureFilterType::Nearest : gfx::TextureFilterType::Linear;
 
-                bucket.texture2d->setSamplerConfiguration(
-                    {.filter = filter, .wrapU = gfx::TextureWrapType::Clamp, .wrapV = gfx::TextureWrapType::Clamp});
+                bucket.texture2d->setSamplerConfiguration({.filter = filter,
+                                                           .wrapU = gfx::TextureWrapType::Clamp,
+                                                           .wrapV = gfx::TextureWrapType::Clamp,
+                                                           .mipmapped = true,
+                                                           .mipmapFilter = gfx::TextureFilterType::Nearest});
 
                 builder->setTexture(bucket.texture2d, idRasterImage0Texture);
                 builder->setTexture(bucket.texture2d, idRasterImage1Texture);

@@ -76,6 +76,7 @@ void Texture2D::allocateTexture() {
     // Create a new texture object
     auto obj = context.createUniqueTexture(size, pixelFormat, channelType);
     texture = std::make_unique<UniqueTexture>(std::move(obj));
+    mipsGenerated = false;
 }
 
 void Texture2D::updateTextureData(const void* data) noexcept {
@@ -103,9 +104,18 @@ void Texture2D::updateSamplerConfiguration() noexcept {
     using namespace platform;
     samplerStateDirty = false;
 
-    MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D,
-                                     GL_TEXTURE_MIN_FILTER,
-                                     samplerState.filter == gfx::TextureFilterType::Nearest ? GL_NEAREST : GL_LINEAR));
+    const bool nearest = samplerState.filter == gfx::TextureFilterType::Nearest;
+    GLint minFilter = nearest ? GL_NEAREST : GL_LINEAR;
+    if (samplerState.mipmapped) {
+        const bool nearestMip = samplerState.mipmapFilter == gfx::TextureFilterType::Nearest;
+        minFilter = nearest ? (nearestMip ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST_MIPMAP_LINEAR)
+                            : (nearestMip ? GL_LINEAR_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+        if (!mipsGenerated && texture) {
+            MBGL_CHECK_ERROR(glGenerateMipmap(GL_TEXTURE_2D));
+            mipsGenerated = true;
+        }
+    }
+    MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter));
     MBGL_CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D,
                                      GL_TEXTURE_MAG_FILTER,
                                      samplerState.filter == gfx::TextureFilterType::Nearest ? GL_NEAREST : GL_LINEAR));
@@ -189,6 +199,11 @@ void Texture2D::uploadSubRegion(const void* pixelData, const Size& size_, uint16
                                      Enum<gfx::TexturePixelType>::to(pixelFormat),
                                      Enum<gfx::TextureChannelDataType>::to(channelType),
                                      pixelData));
+
+    if (samplerState.mipmapped) {
+        MBGL_CHECK_ERROR(glGenerateMipmap(GL_TEXTURE_2D));
+        mipsGenerated = true;
+    }
 
     context.renderingStats().numTextureUpdates++;
     context.renderingStats().textureUpdateBytes += (getPixelStride() * size_.width * size_.height);

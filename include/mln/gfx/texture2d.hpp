@@ -29,6 +29,8 @@ public:
 
         uint8_t maxAnisotropy{1};
         bool mipmapped{false};
+        /// How a minified sample picks between mip levels when `mipmapped`
+        TextureFilterType mipmapFilter{TextureFilterType::Linear};
 
         bool operator==(const SamplerState&) const = default;
     };
