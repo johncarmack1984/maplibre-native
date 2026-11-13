@@ -6,6 +6,7 @@
 #include <mln/style/image_impl.hpp>
 #include <mln/style/projection.hpp>
 #include <mln/style/projection_impl.hpp>
+#include <mln/style/sky.hpp>
 #include <mln/style/layer_impl.hpp>
 #include <mln/style/layers/background_layer.hpp>
 #include <mln/style/layers/circle_layer.hpp>
@@ -135,6 +136,7 @@ void Style::Impl::parse(const std::string& json_) {
     defaultCamera.roll = parser.roll;
 
     setLight(std::make_unique<Light>(parser.light));
+    setSky(parser.sky ? std::make_unique<Sky>(std::move(*parser.sky)) : nullptr);
 
     if (fileSource) {
         if (parser.sprites.empty()) {
@@ -350,6 +352,22 @@ Light* Style::Impl::getLight() const {
     return light.get();
 }
 
+void Style::Impl::setSky(std::unique_ptr<Sky> sky_) {
+    if (sky) {
+        sky->setObserver(nullptr);
+    }
+
+    sky = std::move(sky_);
+    if (sky) {
+        sky->setObserver(this);
+    }
+    observer->onUpdate();
+}
+
+Sky* Style::Impl::getSky() const {
+    return sky.get();
+}
+
 void Style::Impl::setProjection(std::unique_ptr<Projection> projection_) {
     projection = std::move(projection_);
     projection->setObserver(this);
@@ -539,6 +557,10 @@ void Style::Impl::onLayerChanged(Layer& layer) {
 }
 
 void Style::Impl::onLightChanged(const Light&) {
+    observer->onUpdate();
+}
+
+void Style::Impl::onSkyChanged(const Sky&) {
     observer->onUpdate();
 }
 

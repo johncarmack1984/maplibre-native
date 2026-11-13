@@ -18,6 +18,7 @@ target_include_directories(
 list(APPEND
         SRC_FILES
         ${PROJECT_SOURCE_DIR}/src/mln/webgpu/buffer_resource.cpp
+        ${PROJECT_SOURCE_DIR}/src/mln/webgpu/buffer_uploader.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/webgpu/context.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/webgpu/command_encoder.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/webgpu/renderer_backend.cpp
@@ -44,6 +45,7 @@ list(APPEND
         ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/line.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/location_indicator.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/raster.cpp
+        ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/sky.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/symbol.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/shaders/webgpu/widevector.cpp
         ${PROJECT_SOURCE_DIR}/src/mln/webgpu/vertex_buffer_resource.cpp
@@ -57,6 +59,7 @@ list(APPEND
 list(APPEND
         INCLUDE_FILES
         ${PROJECT_SOURCE_DIR}/include/mln/webgpu/buffer_resource.hpp
+        ${PROJECT_SOURCE_DIR}/include/mln/webgpu/buffer_uploader.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/webgpu/command_encoder.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/webgpu/context.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/webgpu/drawable.hpp
@@ -83,6 +86,7 @@ list(APPEND
         ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/line.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/location_indicator.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/raster.hpp
+        ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/sky.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/symbol.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/shaders/webgpu/widevector.hpp
         ${PROJECT_SOURCE_DIR}/include/mln/webgpu/texture2d.hpp
