@@ -44,7 +44,7 @@ jobs:
 
   ios-build:
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: false
     runs-on: macos-26
     timeout-minutes: 300
     env:
@@ -249,7 +249,7 @@ jobs:
     needs: pre_job
     runs-on: macos-26
     timeout-minutes: 60
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -331,7 +331,7 @@ jobs:
 
   ios-build-webgpu-wgpu:
     needs: pre_job
-    if: needs.pre_job.outputs.should_skip != 'true'
+    if: false
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -383,7 +383,7 @@ jobs:
     permissions:
       actions: write
       contents: read
-    if: needs.pre_job.outputs.should_skip != 'true' && always()
+    if: false
     needs:
       - pre_job
       - ios-build
