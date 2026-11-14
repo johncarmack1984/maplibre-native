@@ -112,8 +112,8 @@ static_assert(sizeof(FillOutlineTriangulatedDrawableUBO) == 5 * 16);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) FillEvaluatedPropsUBO {
-    /*  0 */ Color color;
-    /* 16 */ Color outline_color;
+    /*  0 */ std::array<float, 4> color;
+    /* 16 */ std::array<float, 4> outline_color;
     /* 32 */ float opacity;
     /* 36 */ float fade;
     /* 40 */ float from_scale;

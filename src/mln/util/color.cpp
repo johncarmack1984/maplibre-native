@@ -44,7 +44,8 @@ struct Hcl {
 };
 
 double rgb2xyz(double x) {
-    return x <= 0.04045 ? x / 12.92 : std::pow((x + 0.055) / 1.055, 2.4);
+    const double magnitude = std::abs(x);
+    return magnitude <= 0.04045 ? x / 12.92 : std::copysign(std::pow((magnitude + 0.055) / 1.055, 2.4), x);
 }
 
 double xyz2lab(double t) {
@@ -56,8 +57,8 @@ double lab2xyz(double t) {
 }
 
 double xyz2rgb(double x) {
-    x = x <= 0.00304 ? 12.92 * x : 1.055 * std::pow(x, 1.0 / 2.4) - 0.055;
-    return std::clamp(x, 0.0, 1.0);
+    const double magnitude = std::abs(x);
+    return magnitude <= 0.00304 ? 12.92 * x : std::copysign(1.055 * std::pow(magnitude, 1.0 / 2.4) - 0.055, x);
 }
 
 double constrainAngle(double angle) {
@@ -76,8 +77,7 @@ Lab rgbToLab(const Rgb& c) {
         x = xyz2lab((0.4360747 * r + 0.3850649 * g + 0.1430804 * b) / Xn);
         z = xyz2lab((0.0139322 * r + 0.0971045 * g + 0.7141733 * b) / Zn);
     }
-    const double l = 116.0 * y - 16.0;
-    return {.l = l < 0 ? 0 : l, .a = 500.0 * (x - y), .b = 200.0 * (y - z), .alpha = c.a};
+    return {.l = 116.0 * y - 16.0, .a = 500.0 * (x - y), .b = 200.0 * (y - z), .alpha = c.a};
 }
 
 Rgb labToRgb(const Lab& c) {
@@ -107,17 +107,27 @@ Rgb hclToRgb(const Hcl& c) {
 }
 
 Rgb straight(const Color& color) {
+    if (color.unclipped) {
+        const auto& [r, g, b] = *color.unclipped;
+        return {.r = r, .g = g, .b = b, .a = color.a};
+    }
     if (color.a == 0) {
         return {.r = 0, .g = 0, .b = 0, .a = 0};
     }
     return {.r = color.r / color.a, .g = color.g / color.a, .b = color.b / color.a, .a = color.a};
 }
 
+// Clips a color outside sRGB channel by channel, as browsers draw one, and keeps its unclipped value.
 Color premultiplied(const Rgb& c) {
-    return {static_cast<float>(c.r * c.a),
-            static_cast<float>(c.g * c.a),
-            static_cast<float>(c.b * c.a),
-            static_cast<float>(c.a)};
+    const double r = std::clamp(c.r, 0.0, 1.0);
+    const double g = std::clamp(c.g, 0.0, 1.0);
+    const double b = std::clamp(c.b, 0.0, 1.0);
+    Color color{
+        static_cast<float>(r * c.a), static_cast<float>(g * c.a), static_cast<float>(b * c.a), static_cast<float>(c.a)};
+    if (r != c.r || g != c.g || b != c.b) {
+        color.unclipped = {static_cast<float>(c.r), static_cast<float>(c.g), static_cast<float>(c.b)};
+    }
+    return color;
 }
 
 double lerp(double a, double b, double t) {
@@ -158,6 +168,12 @@ constexpr double chromaPercentReference = 0.4;
 constexpr double abPercentReference = chromaPercentReference;
 // Keeps the conversion finite: past this chroma, the clipped color stops changing.
 constexpr double maxChroma = 1e6;
+// Keeps the conversion finite: past this component, the clipped color stops changing.
+constexpr double maxDisplayP3Component = 1e6;
+// https://drafts.csswg.org/css-color-4/#color-conversion-code
+constexpr Mat3 linearDisplayP3ToXyz = {{{608311.0 / 1250200.0, 189793.0 / 714400.0, 198249.0 / 1000160.0},
+                                        {35783.0 / 156275.0, 247089.0 / 357200.0, 198249.0 / 2500400.0},
+                                        {0.0, 32229.0 / 714400.0, 5220557.0 / 5000800.0}}};
 
 struct Oklch {
     double l, c, h, alpha;
@@ -200,15 +216,12 @@ Oklch rgbToOklch(const Rgb& rgb) {
     return {.l = lab[0], .c = c, .h = constrainAngle(std::atan2(lab[2], lab[1]) * radToDeg), .alpha = rgb.a};
 }
 
-// Clips a color outside sRGB channel by channel, as browsers draw one.
+// A color outside sRGB keeps its channels outside 0..1.
 Rgb oklchToRgb(const Oklch& color) {
     const double hue = std::isnan(color.h) ? 0.0 : color.h * degToRad;
     const double chroma = std::min(color.c, maxChroma);
     const Vec3 rgb = oklabToSrgb({color.l, chroma * std::cos(hue), chroma * std::sin(hue)});
-    return {.r = std::clamp(rgb[0], 0.0, 1.0),
-            .g = std::clamp(rgb[1], 0.0, 1.0),
-            .b = std::clamp(rgb[2], 0.0, 1.0),
-            .a = color.alpha};
+    return {.r = rgb[0], .g = rgb[1], .b = rgb[2], .a = color.alpha};
 }
 
 Oklab rgbToOklab(const Rgb& rgb) {
@@ -223,6 +236,16 @@ Rgb oklabToRgb(const Oklab& color) {
                        .alpha = color.alpha});
 }
 
+// Display P3 shares sRGB's transfer function: https://drafts.csswg.org/css-color-4/#predefined-display-p3
+Rgb displayP3ToRgb(const Rgb& color) {
+    const auto linear = [](double x) {
+        return rgb2xyz(std::clamp(x, -maxDisplayP3Component, maxDisplayP3Component));
+    };
+    const Vec3 rgb = multiply(xyzToLinearSrgb,
+                              multiply(linearDisplayP3ToXyz, {linear(color.r), linear(color.g), linear(color.b)}));
+    return {.r = linearToSrgb(rgb[0]), .g = linearToSrgb(rgb[1]), .b = linearToSrgb(rgb[2]), .a = color.a};
+}
+
 bool isCssWhitespace(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
@@ -233,7 +256,7 @@ bool isDigit(char c) {
 
 // Reads `none` as 0, or a CSS <number> followed by a `%` that makes 100% `percentReference` or, for a hue, by an
 // angle unit, in degrees.
-std::optional<double> readOkArgument(std::string_view input, std::size_t& pos, double percentReference, bool hue) {
+std::optional<double> readColorArgument(std::string_view input, std::size_t& pos, double percentReference, bool hue) {
     if (input.substr(pos, 4) == "none") {
         pos += 4;
         return 0.0;
@@ -291,12 +314,14 @@ char toLowerAscii(char c) {
     return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
 }
 
-// Reads the three components and the alpha of `prefix ... )`, the last component a hue when `lastIsHue`:
-// https://drafts.csswg.org/css-color-4/#specifying-oklab-oklch
-std::optional<std::array<double, 4>> parseOkFunction(std::string_view text,
-                                                     std::string_view prefix,
-                                                     const std::array<double, 3>& percentReferences,
-                                                     bool lastIsHue) {
+// Reads the three components and the alpha of `prefix ... )`, after `colorSpace` unless it is empty, the last
+// component a hue when `lastIsHue`: https://drafts.csswg.org/css-color-4/#specifying-oklab-oklch and
+// https://drafts.csswg.org/css-color-4/#color-function
+std::optional<std::array<double, 4>> parseColorFunction(std::string_view text,
+                                                        std::string_view prefix,
+                                                        std::string_view colorSpace,
+                                                        const std::array<double, 3>& percentReferences,
+                                                        bool lastIsHue) {
     const auto first = std::ranges::find_if_not(text, isCssWhitespace);
     const auto last = std::ranges::find_if_not(text | std::views::reverse, isCssWhitespace).base();
     if (last - first <= static_cast<std::ptrdiff_t>(prefix.size()) ||
@@ -320,11 +345,20 @@ std::optional<std::array<double, 4>> parseOkFunction(std::string_view text,
 
     std::array<double, 4> components{};
     skipWhitespace();
+    if (!colorSpace.empty()) {
+        if (!inside.substr(pos).starts_with(colorSpace)) {
+            return std::nullopt;
+        }
+        pos += colorSpace.size();
+        if (!skipWhitespace()) {
+            return std::nullopt;
+        }
+    }
     for (std::size_t i = 0; i < percentReferences.size(); ++i) {
         if (i > 0 && !skipWhitespace()) {
             return std::nullopt;
         }
-        const auto component = readOkArgument(
+        const auto component = readColorArgument(
             inside, pos, percentReferences[i], lastIsHue && i + 1 == percentReferences.size());
         if (!component) {
             return std::nullopt;
@@ -336,7 +370,7 @@ std::optional<std::array<double, 4>> parseOkFunction(std::string_view text,
     if (pos < inside.size() && inside[pos] == '/') {
         ++pos;
         skipWhitespace();
-        alpha = readOkArgument(inside, pos, 1.0, false);
+        alpha = readColorArgument(inside, pos, 1.0, false);
         skipWhitespace();
     }
     if (!alpha || pos != inside.size()) {
@@ -347,7 +381,7 @@ std::optional<std::array<double, 4>> parseOkFunction(std::string_view text,
 }
 
 std::optional<Oklch> parseOklch(std::string_view text) {
-    const auto components = parseOkFunction(text, "oklch(", {1.0, chromaPercentReference, 1.0}, true);
+    const auto components = parseColorFunction(text, "oklch(", {}, {1.0, chromaPercentReference, 1.0}, true);
     if (!components) {
         return std::nullopt;
     }
@@ -359,7 +393,8 @@ std::optional<Oklch> parseOklch(std::string_view text) {
 }
 
 std::optional<Oklab> parseOklab(std::string_view text) {
-    const auto components = parseOkFunction(text, "oklab(", {1.0, abPercentReference, abPercentReference}, false);
+    const auto components = parseColorFunction(
+        text, "oklab(", {}, {1.0, abPercentReference, abPercentReference}, false);
     if (!components) {
         return std::nullopt;
     }
@@ -367,12 +402,32 @@ std::optional<Oklab> parseOklab(std::string_view text) {
     return Oklab{.l = std::clamp(l, 0.0, 1.0), .a = a, .b = b, .alpha = std::clamp(alpha, 0.0, 1.0)};
 }
 
+std::optional<Rgb> parseDisplayP3(std::string_view text) {
+    const auto components = parseColorFunction(text, "color(", "display-p3", {1.0, 1.0, 1.0}, false);
+    if (!components) {
+        return std::nullopt;
+    }
+    const auto [r, g, b, alpha] = *components;
+    return displayP3ToRgb({.r = r, .g = g, .b = b, .a = std::clamp(alpha, 0.0, 1.0)});
+}
+
 } // namespace
 
 Color Color::interpolate(const Color& from, const Color& to, const double t, const ColorSpace space) {
     switch (space) {
-        case ColorSpace::RGB:
-            return util::interpolate(from, to, t);
+        case ColorSpace::RGB: {
+            if (!from.unclipped && !to.unclipped) {
+                return util::interpolate(from, to, t);
+            }
+            const Rgb a = straight(from);
+            const Rgb b = straight(to);
+            const double alpha = lerp(a.a, b.a, t);
+            const double divisor = alpha == 0.0 ? 1.0 : alpha;
+            return premultiplied({.r = lerp(a.r * a.a, b.r * b.a, t) / divisor,
+                                  .g = lerp(a.g * a.a, b.g * b.a, t) / divisor,
+                                  .b = lerp(a.b * a.a, b.b * b.a, t) / divisor,
+                                  .a = alpha});
+        }
         case ColorSpace::LAB: {
             const Lab a = rgbToLab(straight(from));
             const Lab b = rgbToLab(straight(to));
@@ -446,6 +501,9 @@ std::optional<Color> Color::parse(const std::string& s) {
     }
     if (const auto oklab = parseOklab(s)) {
         return premultiplied(oklabToRgb(*oklab));
+    }
+    if (const auto displayP3 = parseDisplayP3(s)) {
+        return premultiplied(*displayP3);
     }
 
     const auto css_color = CSSColorParser::parse(s);

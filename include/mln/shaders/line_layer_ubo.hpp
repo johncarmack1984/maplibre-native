@@ -139,7 +139,7 @@ static_assert(sizeof(LineExpressionUBO) % 16 == 0);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) LineEvaluatedPropsUBO {
-    /*  0 */ Color color;
+    /*  0 */ std::array<float, 4> color;
     /* 16 */ float blur;
     /* 20 */ float opacity;
     /* 24 */ float gapwidth;

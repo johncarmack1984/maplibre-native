@@ -37,7 +37,7 @@ static_assert(sizeof(FillExtrusionTilePropsUBO) == 3 * 16);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) FillExtrusionPropsUBO {
-    /*  0 */ Color color;
+    /*  0 */ std::array<float, 4> color;
     /* 16 */ std::array<float, 3> light_color;
     /* 28 */ float pad1;
     /* 32 */ std::array<float, 3> light_position;

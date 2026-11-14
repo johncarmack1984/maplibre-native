@@ -3,6 +3,7 @@
 #include <string>
 
 #include <mln/util/color.hpp>
+#include <mln/util/interpolate.hpp>
 
 using namespace mln;
 
@@ -227,6 +228,49 @@ TEST(ColorParse, OklabInvalid) {
     }
 }
 
+// Expected values come from GL JS's Color (maplibre-gl-style-spec), premultiplied.
+TEST(ColorParse, DisplayP3) {
+    for (const auto* input : {"color(display-p3 0.8 0.6 0.4)",
+                              "color(display-p3 80% 60% 40%)",
+                              "COLOR(Display-P3 0.8 0.6 0.4)",
+                              "color(display-p3 8e-1 6E-1 +.4)",
+                              " color(  display-p3\t0.8 0.6\n0.4  /  1  ) "}) {
+        SCOPED_TRACE(input);
+        expectColor(Color::parse(input).value(), 0.8367482f, 0.5896054f, 0.3639975f, 1.0f);
+    }
+    expectColor(Color::parse("color(display-p3 0.25 0.45 0.65)").value(), 0.1677674f, 0.4561584f, 0.6674217f, 1.0f);
+    expectColor(Color::parse("color(display-p3 0.6 0.3 0.8 / 0.5)").value(), 0.3225418f, 0.1391187f, 0.4136542f, 0.5f);
+    expectColor(Color::parse("color(display-p3 0.6 0.3 0.8 / 50%)").value(), 0.3225418f, 0.1391187f, 0.4136542f, 0.5f);
+    expectColor(Color::parse("color(display-p3 none 0.6 0.4)").value(), 0.0f, 0.6113403f, 0.3824163f, 1.0f);
+    expectColor(Color::parse("color(display-p3 0.8 0.6 0.4 / none)").value(), 0.0f, 0.0f, 0.0f, 0.0f);
+}
+
+TEST(ColorParse, DisplayP3OutsideSrgbIsClipped) {
+    expectColor(Color::parse("color(display-p3 0 1 0)").value(), 0.0f, 1.0f, 0.0f, 1.0f);
+    expectColor(Color::parse("color(display-p3 1.1 -0.1 0.4)").value(), 1.0f, 0.0f, 0.3845687f, 1.0f);
+    // A huge component converts as 1e6, which stays finite.
+    expectColor(Color::parse("color(display-p3 1e200 0 0)").value(), 1.0f, 0.0f, 0.0f, 1.0f);
+    expectColor(Color::parse("color(display-p3 -1e200 0 0)").value(), 0.0f, 1.0f, 1.0f, 1.0f);
+}
+
+TEST(ColorParse, DisplayP3Invalid) {
+    for (const auto* input : {"color(display-p3 0.8, 0.6, 0.4)",
+                              "color(display-p3 0.8 0.6)",
+                              "color(display-p3 0.8 0.6 0.4 0.5)",
+                              "color(display-p3 0.8 0.6 0.4 /)",
+                              "color(display-p3 0.8deg 0.6 0.4)",
+                              "color(display-p30.8 0.6 0.4)",
+                              "color(display-p3)",
+                              "color(srgb 0.8 0.6 0.4)",
+                              "color(0.8 0.6 0.4)",
+                              "color(display-p3 1e999 0 0)",
+                              "color (display-p3 0.8 0.6 0.4)",
+                              "color(display-p3 0.8 0.6 0.4"}) {
+        SCOPED_TRACE(input);
+        EXPECT_FALSE(Color::parse(input).has_value());
+    }
+}
+
 TEST(ColorInterpolate, Oklch) {
     const Color blue = Color::blue();
     const Color green = Color::parse("rgba(0,255,0,.6)").value();
@@ -332,4 +376,43 @@ TEST(ColorInterpolate, RgbIsTheExistingInterpolation) {
     const Color red = *Color::parse("rgba(255,0,0,0.5)");
     const Color mixed = Color::interpolate(red, Color::blue(), 0.5, ColorSpace::RGB);
     expectColor(mixed, 0.25f, 0.0f, 0.5f, 0.75f);
+}
+
+// A color outside sRGB interpolates from its unclipped value: https://drafts.csswg.org/css-color-4/#interpolation-space
+TEST(ColorInterpolate, ReadsTheUnclippedColor) {
+    expectColor(Color::interpolate(Color::parse("oklab(0.7 -0.3 0.3)").value(),
+                                   Color::parse("oklab(0.4 0.1 -0.3)").value(),
+                                   0.45,
+                                   ColorSpace::OKLAB),
+                0.0f,
+                0.5495706f,
+                0.3952543f,
+                1.0f);
+    expectColor(Color::interpolate(Color::parse("oklch(0.6 0.15 10)").value(),
+                                   Color::parse("oklch(0.6 0.15 185)").value(),
+                                   0.5,
+                                   ColorSpace::OKLCH),
+                0.6010282f,
+                0.4965564f,
+                0.0f,
+                1.0f);
+    expectColor(Color::interpolate(Color::parse("oklch(0.7 0.1 30 / 0.2)").value(),
+                                   Color::parse("oklch(0.5 0.14 248)").value(),
+                                   0.5,
+                                   ColorSpace::OKLCH),
+                0.3318595f,
+                0.1884203f,
+                0.3696138f,
+                0.6f);
+    const Color p3Green = Color::parse("color(display-p3 0 1 0)").value();
+    expectColor(Color::interpolate(p3Green, Color::white(), 0.5, ColorSpace::RGB), 0.2441975f, 1.0f, 0.3446627f, 1.0f);
+    expectColor(util::interpolate(p3Green, Color::white(), 0.5), 0.2441975f, 1.0f, 0.3446627f, 1.0f);
+    expectColor(util::interpolate(p3Green, Color::white(), 0.5f), 0.2441975f, 1.0f, 0.3446627f, 1.0f);
+}
+
+TEST(ColorInterpolate, LabAndHclKeepALightnessBelowZero) {
+    const Color belowBlack = Color::parse("color(display-p3 -0.1 -0.1 -0.1)").value();
+    const Color aboveBlack = Color::parse("color(display-p3 0.1 0.1 0.1)").value();
+    expectColor(Color::interpolate(belowBlack, aboveBlack, 0.5, ColorSpace::LAB), 0.0f, 0.0f, 0.0f, 1.0f);
+    expectColor(Color::interpolate(belowBlack, aboveBlack, 0.5, ColorSpace::HCL), 0.0f, 0.0f, 0.0f, 1.0f);
 }

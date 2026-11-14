@@ -18,7 +18,7 @@ static_assert(sizeof(BackgroundDrawableUBO) == 4 * 16);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) BackgroundPropsUBO {
-    /*  0 */ Color color;
+    /*  0 */ std::array<float, 4> color;
     /* 16 */ float opacity;
     /* 20 */ float pad1;
     /* 24 */ float pad2;

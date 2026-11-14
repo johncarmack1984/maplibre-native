@@ -19,7 +19,8 @@ enum class ColorSpace : uint8_t {
     OKLAB,
 };
 
-// Stores a premultiplied color, with all four channels ranging from 0..1
+// Stores a premultiplied color, with all four channels ranging from 0..1. A color outside sRGB is clipped to it
+// channel by channel, and keeps its unclipped value for color interpolation.
 class Color {
 public:
     Color() = default;
@@ -44,6 +45,10 @@ public:
     float g = 0.0f;
     float b = 0.0f;
     float a = 0.0f;
+
+    // The straight red, green and blue of a color outside sRGB, before clipping; empty for a color inside it. The
+    // channels drawn are r, g, b and a, which are what operator== compares.
+    std::optional<std::array<float, 3>> unclipped;
 
     static Color black() { return {0.0f, 0.0f, 0.0f, 1.0f}; };
     static Color white() { return {1.0f, 1.0f, 1.0f, 1.0f}; };

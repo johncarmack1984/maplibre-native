@@ -7,7 +7,7 @@ namespace shaders {
 
 struct alignas(16) DebugUBO {
     /*  0 */ std::array<float, 4 * 4> matrix;
-    /* 64 */ Color color;
+    /* 64 */ std::array<float, 4> color;
     /* 80 */ float overlay_scale;
     /* 84 */ float pad1;
     /* 88 */ float pad2;

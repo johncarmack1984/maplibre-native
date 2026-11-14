@@ -44,14 +44,14 @@ static_assert(sizeof(SymbolTilePropsUBO) == 16);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) SymbolEvaluatedPropsUBO {
-    /*  0 */ Color text_fill_color;
-    /* 16 */ Color text_halo_color;
+    /*  0 */ std::array<float, 4> text_fill_color;
+    /* 16 */ std::array<float, 4> text_halo_color;
     /* 32 */ float text_opacity;
     /* 36 */ float text_halo_width;
     /* 40 */ float text_halo_blur;
     /* 44 */ float pad1;
-    /* 48 */ Color icon_fill_color;
-    /* 64 */ Color icon_halo_color;
+    /* 48 */ std::array<float, 4> icon_fill_color;
+    /* 64 */ std::array<float, 4> icon_halo_color;
     /* 80 */ float icon_opacity;
     /* 84 */ float icon_halo_width;
     /* 88 */ float icon_halo_blur;

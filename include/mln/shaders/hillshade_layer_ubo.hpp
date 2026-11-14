@@ -35,7 +35,7 @@ static_assert(sizeof(HillshadeTilePropsUBO) == 32);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) HillshadeEvaluatedPropsUBO {
-    /*   0 */ Color accent;
+    /*   0 */ std::array<float, 4> accent;
     /*  16 */ std::array<float, 4> altitudes;   // NEW: altitude values in radians (up to 4)
     /*  32 */ std::array<float, 4> azimuths;    // NEW: azimuth values in radians (up to 4)
     /*  48 */ std::array<float, 16> shadows;    // NEW: 4 shadow colors (4 colors × 4 RGBA)

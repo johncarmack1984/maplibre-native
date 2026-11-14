@@ -7,7 +7,7 @@ namespace shaders {
 
 struct alignas(16) LocationIndicatorDrawableUBO {
     /*  0 */ std::array<float, 4 * 4> matrix;
-    /* 64 */ Color color;
+    /* 64 */ std::array<float, 4> color;
     /* 80 */
 };
 static_assert(sizeof(LocationIndicatorDrawableUBO) == 5 * 16);

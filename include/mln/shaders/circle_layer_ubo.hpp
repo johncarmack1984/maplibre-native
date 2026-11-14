@@ -26,8 +26,8 @@ static_assert(sizeof(CircleDrawableUBO) == 7 * 16);
 
 /// Evaluated properties that do not depend on the tile
 struct alignas(16) CircleEvaluatedPropsUBO {
-    /*  0 */ Color color;
-    /* 16 */ Color stroke_color;
+    /*  0 */ std::array<float, 4> color;
+    /* 16 */ std::array<float, 4> stroke_color;
     /* 32 */ float radius;
     /* 36 */ float blur;
     /* 40 */ float opacity;

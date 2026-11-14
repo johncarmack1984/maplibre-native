@@ -17,10 +17,24 @@ bool interpolatesInRGB(const ZoomCurvePtr& zoomCurve) {
            zoomCurve.get<const Interpolate*>()->getColorSpace() == ColorSpace::RGB;
 }
 
+// The GPU blends a curve's packed stops, which lose the unclipped value of a color outside sRGB.
+bool stopsInsideSrgb(const ZoomCurvePtr& zoomCurve) {
+    if (!zoomCurve.is<const Interpolate*>()) {
+        return true;
+    }
+    bool inside = true;
+    zoomCurve.get<const Interpolate*>()->eachStop([&](double, const Expression& stop) {
+        const auto result = stop.evaluate(EvaluationContext{/*zoom=*/0.0f});
+        inside = inside && !(result && result->is<Color>() && result->get<Color>().unclipped);
+    });
+    return inside;
+}
+
 bool checkGPUCapable(const Expression& expression, const ZoomCurvePtr& zoomCurve) {
     return (expression.dependencies == Dependency::Zoom) && !zoomCurve.is<std::nullptr_t>() &&
            interpolatesInRGB(zoomCurve) &&
-           (expression.getType().is<type::NumberType>() || expression.getType().is<type::ColorType>());
+           (expression.getType().is<type::NumberType>() ||
+            (expression.getType().is<type::ColorType>() && stopsInsideSrgb(zoomCurve)));
 }
 
 std::shared_ptr<const std::set<std::string>> collectGlobalStateRefsShared(const Expression& expression) {

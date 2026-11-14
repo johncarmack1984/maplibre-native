@@ -84,6 +84,15 @@ TEST(PropertyExpression, OnlyRGBColorCurvesGoToTheGPU) {
     EXPECT_FALSE(colorCurve(ColorSpace::OKLAB).isGPUCapable());
 }
 
+TEST(PropertyExpression, ColorCurvesOutsideSrgbStayOffTheGPU) {
+    std::map<double, std::unique_ptr<Expression>> stops;
+    stops.emplace(0.0, toColor(literal("color(display-p3 0 1 0)")));
+    stops.emplace(10.0, toColor(literal("blue")));
+    ParsingContext ctx;
+    auto curve = createInterpolate(type::Color, linear(), ColorSpace::RGB, zoom(), std::move(stops), ctx);
+    EXPECT_FALSE(PropertyExpression<Color>(std::move(*curve)).isGPUCapable());
+}
+
 TEST(PropertyExpression, Defaults) {
     const PropertyExpression<float> noDefault(number(get("property")));
     const PropertyExpression<float> withDefault(number(get("property")), 0.0f);

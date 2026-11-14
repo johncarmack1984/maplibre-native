@@ -121,10 +121,16 @@ template <>
 struct Interpolator<Color> {
 public:
     Color operator()(const Color& a, const Color& b, const float t) noexcept {
+        if (a.unclipped || b.unclipped) {
+            return Color::interpolate(a, b, t, ColorSpace::RGB);
+        }
         return {interpolate(a.r, b.r, t), interpolate(a.g, b.g, t), interpolate(a.b, b.b, t), interpolate(a.a, b.a, t)};
     }
 
     Color operator()(const Color& a, const Color& b, const double t) noexcept {
+        if (a.unclipped || b.unclipped) {
+            return Color::interpolate(a, b, t, ColorSpace::RGB);
+        }
         return {interpolate(a.r, b.r, t), interpolate(a.g, b.g, t), interpolate(a.b, b.b, t), interpolate(a.a, b.a, t)};
     }
 };
