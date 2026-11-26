@@ -267,6 +267,26 @@ TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
     EXPECT_EQ(1u, log.count(warning));
 }
 
+TEST(Map, GlobeDrawsAProjectionExpressionThatNamesARegisteredProjection) {
+    FixtureLog log;
+    MapTest<> test;
+    test.map.getStyle().loadJSON(R"({"version": 8, "sources": {}, "layers": [],
+        "projection": {"type": ["step", ["zoom"], "identity", 10, "mercator"]}})");
+    EXPECT_EQ(
+        1u,
+        log.count({EventSeverity::Warning,
+                   Event::ParseStyle,
+                   -1,
+                   "Projection expressions cannot use the registered projection \"identity\", which only works as "
+                   "a plain name. Falling back to the globe projection."}));
+
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{45, 45}).withZoom(5));
+    EXPECT_TRUE(test.map.getTransformState().isGlobeRendering());
+    test.map.jumpTo(CameraOptions().withZoom(10));
+    EXPECT_FALSE(test.map.getTransformState().isGlobeRendering());
+    EXPECT_NEAR(45, test.map.getCameraOptions().center->latitude(), 1e-6);
+}
+
 TEST(Map, LatLngBoundsToCameraWithExcessivePadding) {
     MapTest<> test;
 
