@@ -32,15 +32,9 @@ struct ProjectionDefinition {
     explicit ProjectionDefinition(std::string_view name);
     ProjectionDefinition(std::string_view from_, std::string_view to_, double transition_);
 
-    /// A projection registered with `addProjection`, or the built-in `identity`, which the style only takes as a
-    /// plain `projection.type`; it draws flat, as Mercator does.
-    static ProjectionDefinition registeredProjection(std::string name);
-
     ProjectionType from = ProjectionType::Mercator;
     ProjectionType to = ProjectionType::Mercator;
     double transition = 1;
-    /// The name of the registered projection, or empty.
-    std::string registered;
 
     bool operator==(const ProjectionDefinition&) const = default;
 
@@ -50,5 +44,12 @@ struct ProjectionDefinition {
 
     mln::Value serialize() const;
 };
+
+/// What a name in a projection expression draws, or a transition between two names. A registered name only works as
+/// a plain `projection.type`, so the globe draws it, as GL JS's globe draws any name it does not know.
+std::optional<ProjectionDefinition> projectionDefinitionInExpression(std::string_view name);
+std::optional<ProjectionDefinition> projectionDefinitionInExpression(std::string_view from,
+                                                                     std::string_view to,
+                                                                     double transition);
 
 } // namespace mln

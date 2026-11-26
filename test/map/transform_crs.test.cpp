@@ -3,7 +3,6 @@
 
 #include <mln/map/transform.hpp>
 #include <mln/map/world_coordinate_helper.hpp>
-#include <mln/style/projection_definition.hpp>
 #include <mln/tile/tile_id.hpp>
 #include <mln/util/crs.hpp>
 #include <mln/util/tile_cover.hpp>
@@ -15,7 +14,7 @@ using namespace mln;
 namespace {
 
 void useProjection(Transform& transform, const std::string& name) {
-    transform.setProjectionDefinition(ProjectionDefinition::registeredProjection(name));
+    transform.setRegisteredProjection(name);
 }
 
 } // namespace
@@ -75,7 +74,7 @@ TEST(TransformInTheIdentityProjection, KeepsTheCenterAcrossAProjectionChange) {
     EXPECT_NEAR(30, transform.getLatLng().latitude(), 1e-9);
     EXPECT_NEAR(40, transform.getLatLng().longitude(), 1e-9);
 
-    transform.setProjectionDefinition(ProjectionDefinition(ProjectionType::Mercator));
+    transform.setRegisteredProjection({});
     EXPECT_NEAR(30, transform.getLatLng().latitude(), 1e-9);
     EXPECT_NEAR(40, transform.getLatLng().longitude(), 1e-9);
 }

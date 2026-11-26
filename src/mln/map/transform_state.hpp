@@ -3,7 +3,6 @@
 #include <mln/map/camera.hpp>
 #include <mln/map/mode.hpp>
 #include <mln/map/projection_base.hpp>
-#include <mln/style/projection_definition.hpp>
 #include <mln/util/camera.hpp>
 #include <mln/util/constants.hpp>
 #include <mln/util/geo.hpp>
@@ -134,7 +133,8 @@ public:
     void setProperties(const TransformStateProperties& properties);
 
     // Projection
-    void setProjectionDefinition(const ProjectionDefinition&);
+    /// The projection registered under `name`, see `addProjection`, or Mercator for an empty name.
+    void setRegisteredProjection(const std::string& name);
 
     // Matrix
     void matrixFor(mat4&, const UnwrappedTileID&) const;
@@ -309,7 +309,6 @@ private:
     const mat4& getInvertedMatrix() const;
 
 private:
-    void setRegisteredProjection(const std::string& name);
     void updateCenterWorldBox();
     /// The center in the world square.
     Point<double> centerWorldPoint() const;

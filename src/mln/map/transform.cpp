@@ -535,8 +535,8 @@ double Transform::getFieldOfView() const {
 
 // MARK: - Projection
 
-void Transform::setProjectionDefinition(const ProjectionDefinition& definition) {
-    state.setProjectionDefinition(definition);
+void Transform::setRegisteredProjection(const std::string& name) {
+    state.setRegisteredProjection(name);
 }
 
 void Transform::setNorthOrientation(NorthOrientation orientation) {

@@ -1,3 +1,5 @@
+#include <mln/test/crs.hpp>
+#include <mln/test/fixture_log_observer.hpp>
 #include <mln/test/util.hpp>
 
 #include <mln/style/conversion/json.hpp>
@@ -17,25 +19,62 @@ TEST(StyleConversion, RegisteredProjection) {
         return convertJSON<Projection>(src, error);
     };
 
-    {
-        auto projection = parseProjection(R"({"type":"identity"})");
-        ASSERT_TRUE(projection);
-        EXPECT_EQ(ProjectionDefinition::registeredProjection("identity"), projection->impl->evaluate(3.f));
-    }
+    for (const std::string name : {"identity", "EPSG:3413"}) {
+        auto projection = parseProjection(R"({"type":")" + name + R"("})");
+        ASSERT_TRUE(projection) << error.message;
+        EXPECT_EQ(name, projection->impl->registeredName);
+        EXPECT_TRUE(projection->getType().isUndefined());
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->impl->evaluate(3.f));
+        EXPECT_EQ(StyleProperty::Kind::Constant, projection->getProperty("type").getKind());
+        EXPECT_EQ(mln::Value(name), projection->getProperty("type").getValue());
 
-    {
-        auto projection = parseProjection(R"({"type":"EPSG:3413"})");
-        ASSERT_TRUE(projection);
-        EXPECT_EQ(ProjectionDefinition::registeredProjection("EPSG:3413"), projection->impl->evaluate(3.f));
-        EXPECT_EQ(mln::Value(std::string("EPSG:3413")), projection->getType().asConstant().serialize());
+        projection->setType(ProjectionDefinition(ProjectionType::Mercator));
+        EXPECT_TRUE(projection->impl->registeredName.empty());
     }
 
     EXPECT_FALSE(parseProjection(R"({"type":"equal-earth"})"));
-    EXPECT_FALSE(parseProjection(R"({"type":["mercator","EPSG:3413",0.5]})"));
-    EXPECT_EQ(
-        "Projection expressions cannot use the registered projection \"EPSG:3413\", which only works as a plain "
-        "name.",
-        error.message);
+}
+
+TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
+    FixtureLog log;
+    Error error;
+    auto parseProjection = [&](const std::string& src) {
+        return convertJSON<Projection>(src, error);
+    };
+    const auto warning = [](const std::string& name) {
+        return FixtureLog::Message{EventSeverity::Warning,
+                                   Event::ParseStyle,
+                                   -1,
+                                   "Projection expressions cannot use the registered projection \"" + name +
+                                       "\", which only works as a plain name. Falling back to the globe projection."};
+    };
+
+    // As in GL JS, the globe draws the expression, and reads a registered name in it as it reads any name but mercator.
+    {
+        auto projection = parseProjection(R"({"type":["step",["zoom"],"identity",10,"mercator"]})");
+        ASSERT_TRUE(projection) << error.message;
+        EXPECT_EQ(1u, log.count(warning("identity")));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(5.f));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->impl->evaluate(10.f));
+    }
+
+    addProjection(test::polarStereographic("test:in-a-transition"));
+    {
+        auto projection = parseProjection(R"({"type":["mercator","test:in-a-transition",0.25]})");
+        ASSERT_TRUE(projection) << error.message;
+        EXPECT_EQ(1u, log.count(warning("test:in-a-transition")));
+        // GL JS's globe takes a transition with a name it does not know as the whole globe.
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(3.f));
+    }
+    removeProjection("test:in-a-transition");
+
+    // GL JS warns only for a name that is registered.
+    {
+        auto projection = parseProjection(R"({"type":["mercator","test:not-registered",0.25]})");
+        ASSERT_TRUE(projection) << error.message;
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(3.f));
+    }
+    EXPECT_EQ(0u, log.uncheckedCount()) << log.unchecked();
 }
 
 TEST(StyleConversion, Projection) {

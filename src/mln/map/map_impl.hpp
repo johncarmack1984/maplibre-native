@@ -79,8 +79,6 @@ public:
 
     // Map
     void jumpTo(const CameraOptions&);
-    /// The style's registered projection, or Mercator; a style's globe draws Mercator.
-    ProjectionDefinition projectionAt(double zoom) const;
 
     bool isRenderingStatsViewEnabled() const;
     void enableRenderingStatsView(bool value);

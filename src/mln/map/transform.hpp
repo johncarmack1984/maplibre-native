@@ -95,7 +95,8 @@ public:
     double getFieldOfView() const;
 
     // Projection
-    void setProjectionDefinition(const ProjectionDefinition&);
+    /// The projection registered under `name`, see `addProjection`, or Mercator for an empty name.
+    void setRegisteredProjection(const std::string& name);
     void setNorthOrientation(NorthOrientation);
     NorthOrientation getNorthOrientation() const;
 

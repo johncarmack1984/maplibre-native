@@ -8,12 +8,12 @@ namespace style {
 class Projection::Impl {
 public:
     PropertyValue<ProjectionDefinition> type;
+    /// The projection registered with `addProjection`, or the built-in `identity`, that the style names as its plain
+    /// type, or empty. It draws flat, as Mercator does, and `type` is then undefined.
+    std::string registeredName;
 
     /// The definition at a zoom level; `mercator` when the style does not set one.
     ProjectionDefinition evaluate(float zoom) const;
-
-    /// The registered projection the style names as its plain type, or empty for the built-in ones.
-    std::string registeredName() const;
 };
 
 } // namespace style
