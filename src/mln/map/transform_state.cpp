@@ -1,4 +1,5 @@
 #include <mln/map/transform_state.hpp>
+#include <mln/map/mercator_projection.hpp>
 #include <mln/math/angles.hpp>
 #include <mln/math/clamp.hpp>
 #include <mln/math/log2.hpp>
@@ -44,6 +45,7 @@ double roundForAccuracy(double x) {
 
 TransformState::TransformState(ConstrainMode constrainMode_, ViewportMode viewportMode_)
     : bounds(LatLngBounds()),
+      projection(std::make_shared<MercatorProjection>()),
       constrainMode(constrainMode_),
       viewportMode(viewportMode_) {}
 
@@ -552,12 +554,15 @@ void TransformState::setMinZoom(const double minZoom) {
 }
 
 double TransformState::getMinZoom() const {
+    return scaleZoom(constrainedMinScale());
+}
+
+double TransformState::constrainedMinScale() const {
     double test_scale = min_scale;
     double unused_x = x;
     double unused_y = y;
     constrain(test_scale, unused_x, unused_y);
-
-    return scaleZoom(test_scale);
+    return test_scale;
 }
 
 void TransformState::setMaxZoom(const double maxZoom) {
@@ -777,7 +782,7 @@ ScreenCoordinate TransformState::latLngToScreenCoordinate(const LatLng& latLng, 
         return {};
     }
 
-    Point<double> pt = Projection::project(latLng, scale) / util::tileSize_D;
+    Point<double> pt = projection->project(latLng, scale) / util::tileSize_D;
     vec4 c = {{pt.x, pt.y, 0, 1}};
     matrix::transformMat4(p, c, getCoordMatrix());
     return {p[0] / p[3], size.height - p[1] / p[3]};
@@ -819,7 +824,7 @@ TileCoordinate TransformState::screenCoordinateToTileCoordinate(const ScreenCoor
 
 LatLng TransformState::screenCoordinateToLatLng(const ScreenCoordinate& point, LatLng::WrapMode wrapMode) const {
     auto coord = screenCoordinateToTileCoordinate(point, 0);
-    return Projection::unproject(coord.p, 1. / util::tileSize_D, wrapMode);
+    return projection->unproject(coord.p, 1. / util::tileSize_D, wrapMode);
 }
 
 mat4 TransformState::coordinatePointMatrix(const mat4& projMatrix) const {
