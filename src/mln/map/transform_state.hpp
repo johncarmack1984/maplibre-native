@@ -134,7 +134,9 @@ public:
     void setProperties(const TransformStateProperties& properties);
 
     // Projection
-    void setProjectionDefinition(const ProjectionDefinition&);
+    /// The style's projection: the one registered under `registeredName`, see `addProjection`, which draws flat, or
+    /// for an empty name the definition.
+    void setProjectionDefinition(const ProjectionDefinition&, const std::string& registeredName = {});
     /// The transition the map draws for a projection's: Mercator's in a build without the globe, and in a flipped
     /// viewport, which the globe doesn't draw into yet.
     double drawnProjectionTransition(double transition) const;

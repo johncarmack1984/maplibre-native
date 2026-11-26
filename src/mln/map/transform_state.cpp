@@ -115,11 +115,10 @@ void TransformState::setProperties(const TransformStateProperties& properties) {
 
 // MARK: - Projection
 
-void TransformState::setProjectionDefinition(const ProjectionDefinition& definition) {
-    if (definition.registered != registeredProjection) {
-        setRegisteredProjection(definition.registered);
-    }
-    if (!definition.registered.empty()) {
+void TransformState::setProjectionDefinition(const ProjectionDefinition& definition,
+                                             const std::string& registeredName) {
+    setRegisteredProjection(registeredName);
+    if (!registeredName.empty()) {
         requestedProjectionTransition = 0;
         return;
     }
@@ -156,6 +155,9 @@ void TransformState::updateProjectionTransition() {
 }
 
 void TransformState::setRegisteredProjection(const std::string& name) {
+    if (name == registeredProjection) {
+        return;
+    }
     const LatLng center = getLatLng(LatLng::Unwrapped);
     registeredProjection = name;
     std::shared_ptr<const WorldCoordinateHelper> helper = mercatorWorldCoordinateHelper();

@@ -99,7 +99,9 @@ public:
     double getFieldOfView() const;
 
     // Projection
-    void setProjectionDefinition(const ProjectionDefinition&);
+    /// The style's projection: the one registered under `registeredName`, see `addProjection`, which draws flat, or
+    /// for an empty name the definition.
+    void setProjectionDefinition(const ProjectionDefinition&, const std::string& registeredName = {});
     /// The projection the style gives at a zoom, which constrains an animation's target as it constrains a jump.
     void setProjectionForZoom(std::function<ProjectionDefinition(double zoom)>);
     void setNorthOrientation(NorthOrientation);

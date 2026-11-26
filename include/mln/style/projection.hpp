@@ -24,6 +24,7 @@ public:
     StyleProperty getProperty(const std::string&) const;
 
     static ProjectionDefinition getDefaultType();
+    /// Undefined when the type names a registered projection, see `addProjection`; `getProperty("type")` has its name.
     PropertyValue<ProjectionDefinition> getType() const;
     void setType(PropertyValue<ProjectionDefinition>);
 

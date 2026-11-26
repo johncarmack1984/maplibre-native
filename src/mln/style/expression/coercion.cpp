@@ -77,18 +77,18 @@ EvaluationResult toProjectionDefinition(const Value& value) {
     return value.match(
         [](const ProjectionDefinition& projection) -> EvaluationResult { return projection; },
         [&](const std::string& name) -> EvaluationResult {
-            if (const auto type = projectionTypeFromName(name)) {
-                return ProjectionDefinition(*type);
+            if (auto definition = projectionDefinitionInExpression(name)) {
+                return *definition;
             }
             return EvaluationError{"Could not parse projectionDefinition from value '" + stringify(value) + "'"};
         },
         [&](const std::vector<Value>& components) -> EvaluationResult {
             if (components.size() == 3 && components[0].is<std::string>() && components[1].is<std::string>() &&
                 components[2].is<double>()) {
-                const auto from = projectionTypeFromName(components[0].get<std::string>());
-                const auto to = projectionTypeFromName(components[1].get<std::string>());
-                if (from && to) {
-                    return ProjectionDefinition(*from, *to, components[2].get<double>());
+                if (auto definition = projectionDefinitionInExpression(components[0].get<std::string>(),
+                                                                       components[1].get<std::string>(),
+                                                                       components[2].get<double>())) {
+                    return *definition;
                 }
             }
             return EvaluationError{"Could not parse projectionDefinition from value '" + stringify(value) + "'"};

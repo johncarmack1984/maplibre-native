@@ -117,7 +117,8 @@ void Map::Impl::onUpdate() {
     TimePoint timePoint = mode == MapMode::Continuous ? Clock::now() : Clock::time_point::max();
 
     transform.updateTransitions(timePoint);
-    transform.setProjectionDefinition(projectionAt(transform.getZoom()));
+    transform.setProjectionDefinition(projectionAt(transform.getZoom()),
+                                      style->impl->getProjection()->impl->registeredName);
 
     UpdateParameters params = {
         .styleLoaded = style->impl->isLoaded(),
@@ -328,17 +329,17 @@ void Map::Impl::onDidFinishRenderingMap() {
 void Map::Impl::jumpTo(const CameraOptions& camera) {
     cameraMutated = true;
     // The style's projection decides how the camera is constrained, so it has to be in place first.
-    transform.setProjectionDefinition(projectionAt(camera.zoom.value_or(transform.getZoom())));
+    transform.setProjectionDefinition(projectionAt(camera.zoom.value_or(transform.getZoom())),
+                                      style->impl->getProjection()->impl->registeredName);
     transform.jumpTo(camera);
     onUpdate();
 }
 
 ProjectionDefinition Map::Impl::projectionAt(double zoom) const {
-    auto definition = style->impl->getProjection()->impl->evaluate(static_cast<float>(zoom));
-    if (definition.registered.empty() && (mode == MapMode::Tile || !util::GLOBE_ENABLED)) {
+    if (mode == MapMode::Tile || !util::GLOBE_ENABLED) {
         return ProjectionDefinition(ProjectionType::Mercator);
     }
-    return definition;
+    return style->impl->getProjection()->impl->evaluate(static_cast<float>(zoom));
 }
 
 bool Map::Impl::isRenderingStatsViewEnabled() const {

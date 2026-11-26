@@ -1,5 +1,4 @@
 #include <mln/style/conversion/projection.hpp>
-#include <mln/style/conversion/property_value.hpp>
 #include <mln/style/conversion_impl.hpp>
 
 namespace mln {
@@ -15,11 +14,10 @@ std::optional<Projection> Converter<Projection>::operator()(const Convertible& v
     Projection projection;
 
     if (const auto type = objectMember(value, "type")) {
-        const auto converted = convert<PropertyValue<ProjectionDefinition>>(*type, error, false, false);
-        if (!converted) {
+        if (auto typeError = projection.setProperty("type", *type)) {
+            error = std::move(*typeError);
             return std::nullopt;
         }
-        projection.setType(*converted);
     }
 
     return projection;

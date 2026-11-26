@@ -726,8 +726,8 @@ void Transform::setProjectionForZoom(std::function<ProjectionDefinition(double)>
     projectionForZoom = std::move(projectionForZoom_);
 }
 
-void Transform::setProjectionDefinition(const ProjectionDefinition& definition) {
-    state.setProjectionDefinition(definition);
+void Transform::setProjectionDefinition(const ProjectionDefinition& definition, const std::string& registeredName) {
+    state.setProjectionDefinition(definition, registeredName);
 }
 
 void Transform::setNorthOrientation(NorthOrientation orientation) {
