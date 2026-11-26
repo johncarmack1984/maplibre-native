@@ -83,7 +83,7 @@ class SuperclusterData final : public GeoJSONData {
           helper(std::move(helper_)) {}
 
     Features toLatLng(Features features) const {
-        return helper ? reprojectFeaturesFromWorld(features, *helper) : features;
+        return helper ? reprojectFeaturesFromWorld(std::move(features), *helper) : features;
     }
 
     mapbox::supercluster::Supercluster impl;

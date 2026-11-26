@@ -161,10 +161,18 @@ std::unique_ptr<AnnotationTileData> AnnotationManager::getTileData(const Canonic
         // In a registered projection a tile's lat/lng box can miss part of the tile (a pole inside it), so symbols
         // are matched to tiles by their places in the world square instead of through the lat/lng tree.
         if (!worldSymbolsValid) {
-            worldSymbols.clear();
+            std::vector<std::array<double, 2>> lngLats;
+            lngLats.reserve(symbolAnnotations.size());
             for (const auto& [id, symbol] : symbolAnnotations) {
-                const auto& point = symbol->annotation.geometry;
-                worldSymbols.emplace_back(projection->worldFromLatLng({point.y, point.x}), symbol);
+                lngLats.push_back({symbol->annotation.geometry.x, symbol->annotation.geometry.y});
+            }
+            std::vector<std::array<double, 2>> world(lngLats.size());
+            projection->worldFromLngLats(lngLats, world);
+            worldSymbols.clear();
+            auto place = world.cbegin();
+            for (const auto& [id, symbol] : symbolAnnotations) {
+                worldSymbols.emplace_back(Point<double>{(*place)[0], (*place)[1]}, symbol);
+                ++place;
             }
             worldSymbolsValid = true;
         }

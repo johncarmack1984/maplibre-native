@@ -86,10 +86,14 @@ void tileCover(const OfflineRegionDefinition& definition,
                           [&](const OfflineGeometryRegionDefinition& reg) {
                               const double scale = std::pow(2.0, z);
                               Geometry<double> world = reg.geometry;
-                              mapbox::geometry::for_each_point(world, [&](Point<double>& point) {
-                                  const auto position = projection.worldFromLatLng({point.y, point.x});
-                                  point = {position.x * scale, position.y * scale};
-                              });
+                              convertPoints([&](auto&& visit) { mapbox::geometry::for_each_point(world, visit); },
+                                            [&](std::span<const std::array<double, 2>> lngLats,
+                                                std::span<std::array<double, 2>> positions) {
+                                                projection.worldFromLngLats(lngLats, positions);
+                                                for (auto& position : positions) {
+                                                    position = {position[0] * scale, position[1] * scale};
+                                                }
+                                            });
                               util::TileCover cover(world, z, false);
                               while (cover.hasNext()) {
                                   const auto tile = cover.next();

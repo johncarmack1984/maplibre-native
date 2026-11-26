@@ -6,8 +6,10 @@
 #include <mln/util/tile_matrix_set.hpp>
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -20,8 +22,14 @@ public:
 
     /// `mercator`, or the name of a registered projection.
     virtual const std::string& name() const = 0;
-    virtual Point<double> worldFromLatLng(const LatLng&) const = 0;
-    virtual LatLng latLngFromWorld(const Point<double>&) const = 0;
+    /// Each lng/lat in degrees to its place in the world square, NaN where the projection has none.
+    virtual void worldFromLngLats(std::span<const std::array<double, 2>> lngLats,
+                                  std::span<std::array<double, 2>> world) const = 0;
+    /// Each place in the world square to lng/lat in degrees, with the latitude within 90 degrees of the equator.
+    virtual void lngLatsFromWorld(std::span<const std::array<double, 2>> world,
+                                  std::span<std::array<double, 2>> lngLats) const = 0;
+    Point<double> worldFromLatLng(const LatLng&) const;
+    LatLng latLngFromWorld(const Point<double>&) const;
     /// Whether the position has an answer of its own, rather than the nearest one `latLngFromWorld` falls back on.
     virtual bool hasLatLng(const Point<double>&) const = 0;
     virtual double metersPerWorldUnit(const Point<double>&) const = 0;
@@ -40,10 +48,13 @@ public:
     explicit CRSWorldCoordinateHelper(std::shared_ptr<const CRS>);
 
     const std::string& name() const override { return crs->name; }
-    Point<double> worldFromLatLng(const LatLng&) const override;
+    void worldFromLngLats(std::span<const std::array<double, 2>> lngLats,
+                          std::span<std::array<double, 2>> world) const override;
     /// A position without an answer uses the nearest one inside the world square, or else the last one with an answer
-    /// on the line to the square's center, or else the converter's own finite answer; throws when there is none.
-    LatLng latLngFromWorld(const Point<double>&) const override;
+    /// on the line to the square's center, or else the converter's own finite answer; throws when there is none. Each
+    /// fallback converts every position that needs it in one batch.
+    void lngLatsFromWorld(std::span<const std::array<double, 2>> world,
+                          std::span<std::array<double, 2>> lngLats) const override;
     bool hasLatLng(const Point<double>&) const override;
     double metersPerWorldUnit(const Point<double>&) const override { return extent; }
     double worldZFromAltitude(double altitude, const LatLng&) const override { return altitude / extent; }
@@ -55,11 +66,13 @@ public:
     const std::array<double, 2>& latitudeRange() const;
 
 private:
-    std::optional<std::array<double, 2>> inverse(const Point<double>&) const;
-    std::optional<std::array<double, 2>> finiteInverse(const Point<double>&) const;
-    std::optional<std::array<double, 2>> inverseTowardCenter(const Point<double>&) const;
-    double findLatitudeLimit(double pole) const;
-    double meridianStretch(double longitude, double latitude) const;
+    std::array<double, 2> crsPosition(const std::array<double, 2>& world) const;
+    void finiteInverses(std::span<const std::array<double, 2>> positions,
+                        std::span<std::array<double, 2>> lngLats) const;
+    void ownAnswers(std::span<const std::array<double, 2>> world, std::span<std::array<double, 2>> lngLats) const;
+    void answersTowardCenter(std::span<const std::array<double, 2>> world,
+                             std::span<std::array<double, 2>> lngLats) const;
+    double findLatitudeLimit(const LatLng& center, double pole) const;
 
     std::shared_ptr<const CRS> crs;
     double originX;
@@ -68,6 +81,38 @@ private:
     mutable std::once_flag latitudeRangeFlag;
     mutable std::array<double, 2> latitudeRange_{};
 };
+
+/// The most positions `convertPoints` hands a converter in one call. A batch of a whole big geometry would need fresh
+/// memory for every position twice over, and the page faults on it cost more than the calls the batch saves.
+inline constexpr std::size_t maxConverterBatch = 65536;
+
+/// Moves every point `forEachPoint` visits through `convert`, a helper's `worldFromLngLats` or `lngLatsFromWorld`, in
+/// place, in batches of up to `maxConverterBatch` points. `forEachPoint(fn)` calls `fn` on each `Point<double>&`.
+template <class ForEachPoint, class Convert>
+void convertPoints(ForEachPoint&& forEachPoint, Convert&& convert) {
+    std::vector<std::array<double, 2>> in;
+    std::vector<std::array<double, 2>> out;
+    std::vector<Point<double>*> points;
+    const auto flush = [&] {
+        out.resize(in.size());
+        convert(std::span<const std::array<double, 2>>(in), std::span<std::array<double, 2>>(out));
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            *points[i] = {out[i][0], out[i][1]};
+        }
+        in.clear();
+        points.clear();
+    };
+    forEachPoint([&](Point<double>& point) {
+        in.push_back({point.x, point.y});
+        points.push_back(&point);
+        if (in.size() == maxConverterBatch) {
+            flush();
+        }
+    });
+    if (!in.empty()) {
+        flush();
+    }
+}
 
 /// A lat/lng box sampled on a grid, 17 points on a side with its edges and corners, row by row from the north-west.
 std::vector<LatLng> latLngBoxSamples(const LatLngBounds&);
