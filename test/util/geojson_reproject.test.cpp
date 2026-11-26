@@ -98,17 +98,13 @@ TEST(ReprojectGeoJSONToWorld, WalksFeaturesCollectionsAndGeometryCollections) {
 }
 
 TEST(ReprojectGeoJSONToWorld, LeavesOutPositionsWithoutAFinitePlace) {
-    const auto halfWorld = std::make_shared<const CRS>(
-        CRS{.name = "test:half",
-            .forward =
-                [](const std::array<double, 2>& lngLat) {
-                    return lngLat[0] > 0 ? std::array<double, 2>{std::numeric_limits<double>::quiet_NaN(), lngLat[1]}
-                                         : lngLat;
-                },
-            .inverse = [](const std::array<double, 2>& position) -> std::optional<std::array<double, 2>> {
-                return position;
-            },
-            .tileMatrixSet = {.origin = {-90, 90}, .extentAtZoom0 = 180}});
+    const auto halfWorld = std::make_shared<const CRS>(CRS{
+        .name = "test:half",
+        .forward = test::eachPosition([](const std::array<double, 2>& lngLat) {
+            return lngLat[0] > 0 ? std::array<double, 2>{std::numeric_limits<double>::quiet_NaN(), lngLat[1]} : lngLat;
+        }),
+        .inverse = test::eachPosition(test::unchanged),
+        .tileMatrixSet = {.origin = {-90, 90}, .extentAtZoom0 = 180}});
     const CRSWorldCoordinateHelper helper(halfWorld);
 
     const auto result = reprojectGeoJSONToWorld(
@@ -163,8 +159,9 @@ TEST(ReprojectGeoJSONToWorld, FillsAnEdgeAlongTheSouthernLimitSoAPolygonOfTheWho
 
 TEST(ReprojectGeoJSONToWorld, KeepsAPolygonThatCoversASmallGridOverAllOfIt) {
     auto crs = test::polarStereographic("test:grid");
-    const auto center = crs.forward({-5, 70});
-    crs.tileMatrixSet = {.origin = {center[0] - 500, center[1] + 500}, .extentAtZoom0 = 1000};
+    std::array<std::array<double, 2>, 1> center;
+    crs.forward(std::array<std::array<double, 2>, 1>{{{-5, 70}}}, center);
+    crs.tileMatrixSet = {.origin = {center[0][0] - 500, center[0][1] + 500}, .extentAtZoom0 = 1000};
     const CRSWorldCoordinateHelper helper(std::make_shared<const CRS>(std::move(crs)));
     const mapbox::geometry::polygon<double> rectangle{{{-20, 60}, {10, 60}, {10, 80}, {-20, 80}, {-20, 60}}};
 

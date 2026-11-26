@@ -4,7 +4,7 @@
 
 #include <array>
 #include <functional>
-#include <optional>
+#include <span>
 #include <string>
 
 namespace mln {
@@ -17,10 +17,12 @@ struct CRS {
     /// The name `projection.type` takes, like `EPSG:2193`. It must contain a colon: names without one are reserved for
     /// built-in projections.
     std::string name;
-    /// Lng/lat in degrees to CRS coordinates. Called from any thread.
-    std::function<std::array<double, 2>(const std::array<double, 2>& lngLat)> forward;
-    /// CRS coordinates to lng/lat in degrees, or nothing where there is no answer. Called from any thread.
-    std::function<std::optional<std::array<double, 2>>(const std::array<double, 2>& position)> inverse;
+    /// Each lng/lat in degrees to CRS coordinates, NaN where it has none. Called from any thread, several at once.
+    std::function<void(std::span<const std::array<double, 2>> lngLats, std::span<std::array<double, 2>> positions)>
+        forward;
+    /// Each CRS position to lng/lat in degrees, NaN where there is no answer. Called from any thread, several at once.
+    std::function<void(std::span<const std::array<double, 2>> positions, std::span<std::array<double, 2>> lngLats)>
+        inverse;
     TileMatrixSet tileMatrixSet;
 };
 

@@ -7,10 +7,20 @@
 #include <mln/tile/tile_id.hpp>
 #include <mln/util/crs.hpp>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
+#include <span>
 #include <stdexcept>
 
 using namespace mln;
+
+namespace {
+
+constexpr double noAnswer = std::numeric_limits<double>::quiet_NaN();
+
+} // namespace
 
 TEST(CRSWorldCoordinateHelper, Identity) {
     const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
@@ -43,10 +53,38 @@ TEST(CRSWorldCoordinateHelper, PositionWithoutAnAnswerUsesTheEdgeTowardTheCenter
     EXPECT_EQ(LatLng(0, 90), helper.latLngFromWorld({1.5, 0.5}));
 }
 
+TEST(CRSWorldCoordinateHelper, KeepsAHoleInABatchWhileItsNeighborsConvert) {
+    int forwardCalls = 0;
+    CRS crs = test::disc("test:batch");
+    crs.forward = [&forwardCalls, forward = crs.forward](std::span<const std::array<double, 2>> lngLats,
+                                                         std::span<std::array<double, 2>> positions) {
+        ++forwardCalls;
+        forward(lngLats, positions);
+    };
+    const CRSWorldCoordinateHelper helper(std::make_shared<const CRS>(std::move(crs)));
+
+    const std::array<std::array<double, 2>, 3> lngLats{{{-45, 45}, {noAnswer, noAnswer}, {45, -45}}};
+    std::array<std::array<double, 2>, 3> world{};
+    helper.worldFromLngLats(lngLats, world);
+    EXPECT_EQ(1, forwardCalls);
+    EXPECT_EQ((std::array<double, 2>{0.25, 0.25}), world[0]);
+    EXPECT_TRUE(std::isnan(world[1][0]) && std::isnan(world[1][1]));
+    EXPECT_EQ((std::array<double, 2>{0.75, 0.75}), world[2]);
+
+    // The corner between them has no answer of its own and falls back to the edge of the disc, while they keep theirs.
+    const std::array<std::array<double, 2>, 3> places{{{0.25, 0.25}, {1, 1}, {0.75, 0.75}}};
+    std::array<std::array<double, 2>, 3> answers{};
+    helper.lngLatsFromWorld(places, answers);
+    EXPECT_EQ((std::array<double, 2>{-45, 45}), answers[0]);
+    EXPECT_NEAR(90, std::hypot(answers[1][0], answers[1][1]), 1e-6);
+    EXPECT_NEAR(-answers[1][1], answers[1][0], 1e-9);
+    EXPECT_EQ((std::array<double, 2>{45, -45}), answers[2]);
+}
+
 TEST(CRSWorldCoordinateHelper, ThrowsWhereTheInverseNeverAnswers) {
     CRS crs = test::disc("test:never");
-    crs.inverse = [](const std::array<double, 2>&) -> std::optional<std::array<double, 2>> {
-        return std::nullopt;
+    crs.inverse = [](std::span<const std::array<double, 2>>, std::span<std::array<double, 2>> lngLats) {
+        std::ranges::fill(lngLats, std::array<double, 2>{noAnswer, noAnswer});
     };
     const CRSWorldCoordinateHelper helper(std::make_shared<const CRS>(std::move(crs)));
     EXPECT_THROW(helper.latLngFromWorld({0.5, 0.5}), std::runtime_error);
