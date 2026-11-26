@@ -207,3 +207,45 @@ TEST(TransformInARegisteredProjection, KeepsTheViewInsideThePolarCapInScreenMode
     EXPECT_NEAR(box[3], helper.worldFromLatLng(transform.screenCoordinateToLatLng({256, 512})).y, 1e-6);
     removeProjection("test:polar-screen");
 }
+
+TEST(TransformInARegisteredProjection, StaysFlatInAFlippedViewport) {
+    Transform transform;
+    transform.resize({512, 512});
+    useProjection(transform, "identity");
+    transform.jumpTo(CameraOptions().withCenter(LatLng{45, 45}).withZoom(1));
+
+    transform.setViewportMode(ViewportMode::FlippedY);
+    EXPECT_FALSE(isMercator(transform.getState().getProjection().worldCoordinateHelper()));
+    EXPECT_FALSE(transform.getState().isGlobeRendering());
+    EXPECT_NEAR(45, transform.getLatLng().latitude(), 1e-9);
+    EXPECT_NEAR(45, transform.getLatLng().longitude(), 1e-9);
+
+    transform.setViewportMode(ViewportMode::Default);
+    EXPECT_FALSE(isMercator(transform.getState().getProjection().worldCoordinateHelper()));
+    EXPECT_FALSE(transform.getState().isGlobeRendering());
+}
+
+TEST(TransformInARegisteredProjection, DropsAGlobeAskedForInAFlippedViewport) {
+    Transform transform;
+    transform.resize({512, 512});
+    transform.setViewportMode(ViewportMode::FlippedY);
+    transform.setProjectionDefinition(ProjectionDefinition(ProjectionType::VerticalPerspective));
+    ASSERT_FALSE(transform.getState().isGlobeRendering());
+    useProjection(transform, "identity");
+
+    transform.setViewportMode(ViewportMode::Default);
+    EXPECT_FALSE(transform.getState().isGlobeRendering());
+    EXPECT_FALSE(isMercator(transform.getState().getProjection().worldCoordinateHelper()));
+}
+
+TEST(TransformInARegisteredProjection, LeavesForAGlobeThatWaitsForTheFlippedViewportToEnd) {
+    Transform transform;
+    transform.resize({512, 512});
+    useProjection(transform, "identity");
+    transform.setViewportMode(ViewportMode::FlippedY);
+    transform.setProjectionDefinition(ProjectionDefinition(ProjectionType::VerticalPerspective));
+    EXPECT_FALSE(transform.getState().isGlobeRendering());
+
+    transform.setViewportMode(ViewportMode::Default);
+    EXPECT_TRUE(transform.getState().isGlobeRendering());
+}

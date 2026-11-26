@@ -1,11 +1,13 @@
 #include <mln/test/map_adapter.hpp>
 
 #include <mln/map/map_options.hpp>
+#include <mln/test/crs.hpp>
 #include <mln/test/stub_file_source.hpp>
 #include <mln/test/util.hpp>
 #include <mln/util/image.hpp>
 #include <mln/util/io.hpp>
 #include <mln/util/run_loop.hpp>
+#include <mln/util/crs.hpp>
 #include <mln/style/layers/symbol_layer.hpp>
 #include <mln/style/style.hpp>
 #include <mln/style/image.hpp>
@@ -417,4 +419,31 @@ TEST(Query, GlobeQueryOnAPolarCapReachesNoTile) {
     // Past 85.05° the globe closes the pole over Web Mercator's square, which holds no tile there.
     EXPECT_EQ(1u, frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({80.0, 0.0})).size());
     EXPECT_TRUE(frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({88.0, 0.0})).empty());
+}
+
+TEST(Query, FindsAFeaturePastTheMercatorLimitInAPolarProjection) {
+    addProjection(test::polarStereographic("test:polar-query"));
+    util::RunLoop loop;
+    auto fileSource = std::make_shared<StubFileSource>();
+    HeadlessFrontend frontend{{512, 512}, 1};
+    MapAdapter map{frontend,
+                   MapObserver::nullObserver(),
+                   fileSource,
+                   MapOptions().withMapMode(MapMode::Static).withSize(frontend.getSize())};
+    map.getStyle().loadJSON(R"STYLE({
+        "version": 8,
+        "projection": {"type": "test:polar-query"},
+        "sources": {"arctic": {"type": "geojson", "data": {"type": "Polygon",
+            "coordinates": [[[0, 86], [90, 86], [180, 86], [-90, 86], [0, 86]]]}}},
+        "layers": [{"id": "arctic", "type": "fill", "source": "arctic"}]
+    })STYLE");
+    map.jumpTo(CameraOptions().withCenter(LatLng{88.0, 0.0}).withZoom(4));
+    frontend.render(map);
+
+    // A square around the pole, past Web Mercator's limit, with edges straight in the projection as in GL JS.
+    EXPECT_EQ(1u, frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({88.0, 0.0})).size());
+    EXPECT_EQ(1u, frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({89.0, 90.0})).size());
+    EXPECT_EQ(1u, frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({90.0, 0.0})).size());
+    EXPECT_TRUE(frontend.getRenderer()->queryRenderedFeatures(map.pixelForLatLng({80.0, 0.0})).empty());
+    removeProjection("test:polar-query");
 }
