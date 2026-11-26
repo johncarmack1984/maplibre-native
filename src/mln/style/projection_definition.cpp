@@ -39,6 +39,16 @@ std::optional<ProjectionType> projectionTypeFromName(std::string_view name) {
     return std::nullopt;
 }
 
+bool isRegisteredProjectionName(std::string_view name) {
+    return name == "identity" || name.find(':') != std::string_view::npos;
+}
+
+ProjectionDefinition ProjectionDefinition::registeredProjection(std::string name) {
+    ProjectionDefinition definition;
+    definition.registered = std::move(name);
+    return definition;
+}
+
 ProjectionDefinition::ProjectionDefinition(ProjectionType type)
     : from(type),
       to(type) {}
@@ -73,6 +83,9 @@ double ProjectionDefinition::transitionState() const {
 }
 
 mln::Value ProjectionDefinition::serialize() const {
+    if (!registered.empty()) {
+        return registered;
+    }
     if (from == to && transition == 1) {
         return std::string(projectionTypeName(from));
     }

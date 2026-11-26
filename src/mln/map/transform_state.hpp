@@ -3,6 +3,7 @@
 #include <mln/map/camera.hpp>
 #include <mln/map/mode.hpp>
 #include <mln/map/projection_base.hpp>
+#include <mln/style/projection_definition.hpp>
 #include <mln/util/camera.hpp>
 #include <mln/util/constants.hpp>
 #include <mln/util/geo.hpp>
@@ -131,6 +132,9 @@ public:
     TransformState(ConstrainMode = ConstrainMode::HeightOnly, ViewportMode = ViewportMode::Default);
 
     void setProperties(const TransformStateProperties& properties);
+
+    // Projection
+    void setProjectionDefinition(const ProjectionDefinition&);
 
     // Matrix
     void matrixFor(mat4&, const UnwrappedTileID&) const;
@@ -305,7 +309,19 @@ private:
     const mat4& getInvertedMatrix() const;
 
 private:
+    void setRegisteredProjection(const std::string& name);
+    void updateCenterWorldBox();
+    /// The center in the world square.
+    Point<double> centerWorldPoint() const;
+    /// Meters per screen pixel at the center, at the current zoom.
+    double metersPerPixelAtCenter() const;
+
     std::shared_ptr<const ProjectionBase> projection;
+    /// The registered projection the map is in, or empty.
+    std::string registeredProjection;
+    /// Where a projection whose world does not wrap keeps the center, in world units: the max bounds as a rectangle
+    /// in its world square, or the whole square.
+    std::array<double, 4> centerWorldBox{0, 0, 1, 1};
 
     ConstrainMode constrainMode;
     ViewportMode viewportMode;

@@ -144,7 +144,12 @@ std::optional<ProjectionDefinition> Converter<ProjectionDefinition>::operator()(
         if (const auto type = projectionTypeFromName(*name)) {
             return ProjectionDefinition(*type);
         }
-        error.message = "projection type must be mercator, vertical-perspective or globe";
+        if (isRegisteredProjectionName(*name)) {
+            return ProjectionDefinition::registeredProjection(*name);
+        }
+        error.message =
+            "projection type must be mercator, vertical-perspective, globe, identity or a registered name "
+            "with a colon";
         return std::nullopt;
     }
     if (isArray(value) && arrayLength(value) == 3) {
@@ -156,6 +161,13 @@ std::optional<ProjectionDefinition> Converter<ProjectionDefinition>::operator()(
             const auto to = projectionTypeFromName(*toName);
             if (from && to) {
                 return ProjectionDefinition(*from, *to, *transition);
+            }
+            for (const auto& end : {*fromName, *toName}) {
+                if (isRegisteredProjectionName(end)) {
+                    error.message = "Projection expressions cannot use the registered projection \"" + end +
+                                    "\", which only works as a plain name.";
+                    return std::nullopt;
+                }
             }
             error.message = "projection type must be mercator, vertical-perspective or globe";
             return std::nullopt;

@@ -95,6 +95,27 @@ TEST(Resource, Tile) {
     EXPECT_EQ(0, wmsTile.tileData->y);
     EXPECT_EQ(1, wmsTile.tileData->z);
 
+    // On Mercator `{bbox}` is the same string as `{bbox-epsg-3857}`.
+    Resource mercatorBBoxTile = Resource::tile("http://example.com/?bbox={bbox}", 2.0, 0, 0, 1, Tileset::Scheme::XYZ);
+    EXPECT_EQ("http://example.com/?bbox=-20037508.342789244,0,0,20037508.342789244", mercatorBBoxTile.url);
+
+    // In a registered projection `{bbox}` is in the units of its tile matrix set, here tile 1/1/0 of the identity.
+    const TileMatrixSet identity{.origin = {-90, 90}, .extentAtZoom0 = 180};
+    Resource identityBBoxTile = Resource::tile(
+        "http://example.com/?bbox={bbox}", 1.0, 1, 0, 1, Tileset::Scheme::XYZ, Resource::LoadingMethod::All, &identity);
+    EXPECT_EQ("http://example.com/?bbox=0,0,90,90", identityBBoxTile.url);
+
+    // The TMS scheme flips `{y}` only: `{bbox}` is still the box of tile 1/1/0.
+    Resource tmsBBoxTile = Resource::tile("http://example.com/{y}?bbox={bbox}",
+                                          1.0,
+                                          1,
+                                          0,
+                                          1,
+                                          Tileset::Scheme::TMS,
+                                          Resource::LoadingMethod::All,
+                                          &identity);
+    EXPECT_EQ("http://example.com/1?bbox=0,0,90,90", tmsBBoxTile.url);
+
     Resource tmsTile = Resource::tile("http://example.com/{z}/{x}/{y}{ratio}.png", 1.0, 1, 2, 3, Tileset::Scheme::TMS);
     EXPECT_EQ(Resource::Kind::Tile, tmsTile.kind);
     EXPECT_EQ("http://example.com/3/1/5.png", tmsTile.url);

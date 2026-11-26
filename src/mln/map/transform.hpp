@@ -94,7 +94,8 @@ public:
     double getRoll() const;
     double getFieldOfView() const;
 
-    // North Orientation
+    // Projection
+    void setProjectionDefinition(const ProjectionDefinition&);
     void setNorthOrientation(NorthOrientation);
     NorthOrientation getNorthOrientation() const;
 

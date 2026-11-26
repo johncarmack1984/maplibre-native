@@ -47,13 +47,33 @@ void GeoJSONSource::setURL(const std::string& url_) {
 }
 
 void GeoJSONSource::setGeoJSON(const mapbox::geojson::geojson& geoJSON) {
-    setGeoJSONData(GeoJSONData::create(geoJSON, sequencedScheduler, impl().getOptions()));
+    if (!projection) {
+        pendingGeoJSON = geoJSON;
+        return;
+    }
+    setGeoJSONData(GeoJSONData::create(geoJSON, sequencedScheduler, impl().getOptions(), *projection));
+}
+
+void GeoJSONSource::setGeoJSON(mapbox::geojson::geojson&& geoJSON) {
+    if (!projection) {
+        pendingGeoJSON = std::move(geoJSON);
+        return;
+    }
+    setGeoJSONData(GeoJSONData::create(geoJSON, sequencedScheduler, impl().getOptions(), *projection));
 }
 
 void GeoJSONSource::setGeoJSONData(std::shared_ptr<GeoJSONData> geoJSONData) {
+    pendingGeoJSON.reset();
     req.reset();
     baseImpl = makeMutable<Impl>(impl(), std::move(geoJSONData));
     observer->onSourceChanged(*this);
+}
+
+void GeoJSONSource::setProjection(std::string projection_) {
+    projection = std::move(projection_);
+    if (pendingGeoJSON) {
+        setGeoJSONData(GeoJSONData::create(*pendingGeoJSON, sequencedScheduler, impl().getOptions(), *projection));
+    }
 }
 
 std::optional<std::string> GeoJSONSource::getURL() const {
@@ -89,13 +109,15 @@ void GeoJSONSource::loadDescription(FileSource& fileSource) {
                 /* makeImplInBackground */
                 [currentImpl = baseImpl,
                  data = res.data,
-                 seqScheduler{sequencedScheduler}]() -> Immutable<Source::Impl> {
+                 seqScheduler{sequencedScheduler},
+                 projection_ = projection.value_or(std::string())]() -> Immutable<Source::Impl> {
                     assert(data);
                     auto& current = static_cast<const Impl&>(*currentImpl);
                     conversion::Error error;
                     std::shared_ptr<GeoJSONData> geoJSONData;
                     if (std::optional<GeoJSON> geoJSON = conversion::convertJSON<GeoJSON>(*data, error)) {
-                        geoJSONData = GeoJSONData::create(*geoJSON, std::move(seqScheduler), current.getOptions());
+                        geoJSONData = GeoJSONData::create(
+                            *geoJSON, std::move(seqScheduler), current.getOptions(), projection_);
                     } else {
                         // Create an empty GeoJSON VT object to make sure we're not
                         // infinitely waiting for tiles to load.

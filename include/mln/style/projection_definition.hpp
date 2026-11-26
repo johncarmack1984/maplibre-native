@@ -20,6 +20,9 @@ enum class ProjectionType : uint8_t {
 std::string_view projectionTypeName(ProjectionType);
 std::optional<ProjectionType> projectionTypeFromName(std::string_view);
 
+/// `identity`, or a name with a colon, which is how registered projections are named.
+bool isRegisteredProjectionName(std::string_view);
+
 /// The value of the style's `projection.type`: a single projection, or a transition between two.
 struct ProjectionDefinition {
     ProjectionDefinition() = default;
@@ -29,9 +32,15 @@ struct ProjectionDefinition {
     explicit ProjectionDefinition(std::string_view name);
     ProjectionDefinition(std::string_view from_, std::string_view to_, double transition_);
 
+    /// A projection registered with `addProjection`, or the built-in `identity`, which the style only takes as a
+    /// plain `projection.type`; it draws flat, as Mercator does.
+    static ProjectionDefinition registeredProjection(std::string name);
+
     ProjectionType from = ProjectionType::Mercator;
     ProjectionType to = ProjectionType::Mercator;
     double transition = 1;
+    /// The name of the registered projection, or empty.
+    std::string registered;
 
     bool operator==(const ProjectionDefinition&) const = default;
 

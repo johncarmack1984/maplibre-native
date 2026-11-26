@@ -99,7 +99,7 @@ mat4 Camera::getCameraToWorld(double scale, bool flippedY) const noexcept {
     return cameraToWorld;
 }
 
-mat4 Camera::getWorldToCamera(double scale, bool flippedY) const noexcept {
+mat4 Camera::getWorldToCamera(double scale, bool flippedY, std::optional<double> metersPerWorldUnit) const noexcept {
     // transformation chain from world space to camera space:
     // 1. Height value (z) of renderables is in meters. Scale z coordinate by pixelsPerMeter
     // 2. Transform from pixel coordinates to camera space with cameraMatrix^-1
@@ -108,8 +108,11 @@ mat4 Camera::getWorldToCamera(double scale, bool flippedY) const noexcept {
     // worldToCamera: flip * cam^-1 * zScale
     // cameraToWorld: (flip * cam^-1 * zScale)^-1 => (zScale^-1 * cam * flip^-1)
     const double worldSize = Projection::worldSize(scale);
-    const double latitude = latFromMercatorY(getColumn(transform, 3)[1]);
-    const double pixelsPerMeter = worldSize / (std::cos(util::deg2rad(latitude)) * util::M2PI * util::EARTH_RADIUS_M);
+    const double pixelsPerMeter = metersPerWorldUnit
+                                      ? worldSize / *metersPerWorldUnit
+                                      : worldSize /
+                                            (std::cos(util::deg2rad(latFromMercatorY(getColumn(transform, 3)[1]))) *
+                                             util::M2PI * util::EARTH_RADIUS_M);
 
     // Compute inverse of the camera matrix
     mat4 result = orientation.conjugate().toRotationMatrix();

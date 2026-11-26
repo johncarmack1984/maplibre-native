@@ -1,5 +1,6 @@
 #include <gmock/gmock.h>
 
+#include <mln/test/crs.hpp>
 #include <mln/test/util.hpp>
 #include <mln/test/stub_file_source.hpp>
 #include <mln/test/stub_map_observer.hpp>
@@ -33,6 +34,7 @@
 #include <mln/style/layers/location_indicator_layer.hpp>
 #include <mln/style/layers/raster_layer.hpp>
 #include <mln/style/layers/symbol_layer.hpp>
+#include <mln/style/projection.hpp>
 #include <mln/style/sources/custom_geometry_source.hpp>
 #include <mln/style/sources/geojson_source.hpp>
 #include <mln/style/sources/image_source.hpp>
@@ -201,6 +203,66 @@ TEST(Map, LatLngBoundsToCamera) {
     CameraOptions virtualCamera = test.map.cameraForLatLngBounds(bounds, {});
     ASSERT_TRUE(bounds.contains(*virtualCamera.center));
     EXPECT_NEAR(*virtualCamera.zoom, 1.55467, 1e-5);
+}
+
+TEST(Map, LatLngBoundsToCameraInAPolarProjection) {
+    addProjection(test::northPolarStereographic("test:polar-fit"));
+    {
+        MapTest<> test;
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-fit"}, "sources": {}, "layers": []})");
+
+        // Its corners are the pole and one point on its edge, but the cap north of 60N is a disc around the pole.
+        CameraOptions camera = test.map.cameraForLatLngBounds(LatLngBounds::hull({60, -180}, {90, 180}), {});
+        ASSERT_TRUE(camera.center);
+        EXPECT_NEAR(90, camera.center->latitude(), 1e-6);
+    }
+    removeProjection("test:polar-fit");
+}
+
+TEST(Map, MetersPerPixelInMercatorIsItsScaleAtTheLatitude) {
+    MapTest<> test;
+    test.map.jumpTo(CameraOptions().withCenter(LatLng{40, -74}).withZoom(10.5));
+
+    EXPECT_DOUBLE_EQ(mln::Projection::getMetersPerPixelAtLatitude(55, 10.5), test.map.getMetersPerPixelAt({55, 20}));
+}
+
+TEST(Map, MetersPerPixelInARegisteredProjection) {
+    addProjection(test::polarStereographic("test:polar-scale"));
+    {
+        MapTest<> test;
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-scale"}, "sources": {}, "layers": []})");
+        test.map.jumpTo(CameraOptions().withCenter(LatLng{70, -45}).withZoom(4));
+
+        // The projection is true to scale at 70 N, so a pixel there spans the tile matrix set's 8388608 m at zoom 0
+        // over the world's width in pixels; Mercator's scale at 70 N would be about 1.6 times that.
+        const double expected = 8388608 / mln::Projection::worldSize(std::pow(2.0, 4));
+        EXPECT_NEAR(expected, test.map.getMetersPerPixelAt({70, -45}), expected * 1e-6);
+    }
+    removeProjection("test:polar-scale");
+}
+
+TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
+    FixtureLog log;
+    MapTest<> test;
+    test.map.getStyle().loadJSON(R"({"version": 8, "projection": {"type": "identity"},
+        "sources": {"points": {"type": "geojson", "data": {"type": "Point", "coordinates": [45, 45]}}},
+        "layers": [{"id": "points", "type": "circle", "source": "points"}]})");
+    test.frontend.render(test.map);
+    const FixtureLog::Message warning{
+        EventSeverity::Warning,
+        Event::General,
+        -1,
+        "GeoJSON source \"points\" is drawn in the wrong place: its data was tiled in the \"identity\" projection, so "
+        "set it again after changing the projection."};
+    EXPECT_EQ(0u, log.count(warning));
+
+    test.map.getStyle().setProjection(std::make_unique<style::Projection>());
+    test.frontend.render(test.map);
+    test.frontend.render(test.map);
+
+    EXPECT_EQ(1u, log.count(warning));
 }
 
 TEST(Map, LatLngBoundsToCameraWithExcessivePadding) {

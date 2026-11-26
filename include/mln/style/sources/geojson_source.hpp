@@ -44,9 +44,13 @@ class GeoJSONData {
 public:
     using TileFeatures = mapbox::feature::feature_collection<int16_t>;
     using Features = mapbox::feature::feature_collection<double>;
+    /// `projection` is the registered projection, see `addProjection`, the data is drawn in, or empty for the
+    /// built-in ones. In a registered projection the data is tiled in its world square, and cluster children and
+    /// leaves come back in lat/lng.
     static std::shared_ptr<GeoJSONData> create(const GeoJSON&,
                                                std::shared_ptr<Scheduler> sequencedScheduler,
-                                               const Immutable<GeoJSONOptions>& = GeoJSONOptions::defaultOptions());
+                                               const Immutable<GeoJSONOptions>& = GeoJSONOptions::defaultOptions(),
+                                               const std::string& projection = {});
 
     virtual ~GeoJSONData() = default;
     virtual void getTile(const CanonicalTileID&, const std::function<void(TileFeatures)>&, bool runSynchronously) = 0;
@@ -55,6 +59,12 @@ public:
     virtual Features getChildren(std::uint32_t) = 0;
     virtual Features getLeaves(std::uint32_t, std::uint32_t limit, std::uint32_t offset) = 0;
     virtual std::uint8_t getClusterExpansionZoom(std::uint32_t) = 0;
+
+    /// The registered projection the data was tiled in, or empty.
+    const std::string& getProjection() const { return projection; }
+
+private:
+    std::string projection;
 };
 
 // NOTE: Any derived class must invalidate `weakFactory` in the destructor
@@ -65,7 +75,13 @@ public:
 
     void setURL(const std::string& url);
     void setGeoJSON(const GeoJSON&);
+    void setGeoJSON(GeoJSON&&);
     void setGeoJSONData(std::shared_ptr<GeoJSONData>);
+
+    /// The registered projection, see `addProjection`, of the style the source is in, or empty for the built-in
+    /// ones; the source tiles its data in it. The style sets it when the source joins it and when its projection
+    /// changes, and data the source was given before it joined a style is tiled then.
+    void setProjection(std::string);
 
     std::optional<std::string> getURL() const;
     const GeoJSONOptions& getOptions() const;
@@ -87,6 +103,8 @@ protected:
 
 private:
     std::optional<std::string> url;
+    std::optional<std::string> projection;
+    std::optional<GeoJSON> pendingGeoJSON;
     std::unique_ptr<AsyncRequest> req;
     std::atomic<uint64_t> requestGeneration{0};
     std::shared_ptr<Scheduler> sequencedScheduler;

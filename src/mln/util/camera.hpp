@@ -17,7 +17,11 @@ public:
 
     vec3 getPosition() const noexcept;
     mat4 getCameraToWorld(double scale, bool flippedY) const noexcept;
-    mat4 getWorldToCamera(double scale, bool flippedY) const noexcept;
+    /// Heights are in meters: Mercator scales them at the camera's latitude, a projection with a constant scale
+    /// passes its meters per world unit.
+    mat4 getWorldToCamera(double scale,
+                          bool flippedY,
+                          std::optional<double> metersPerWorldUnit = std::nullopt) const noexcept;
     mat4 getCameraToClipPerspective(double fovy, double aspectRatio, double nearZ, double farZ) const noexcept;
 
     vec3 forward() const noexcept;

@@ -126,14 +126,21 @@ void limitHoles(GeometryCollection& polygon, uint32_t maxHoles) {
     }
 }
 
-Feature::geometry_type convertGeometry(const GeometryTileFeature& geometryTileFeature, const CanonicalTileID& tileID) {
+Feature::geometry_type convertGeometry(const GeometryTileFeature& geometryTileFeature,
+                                       const CanonicalTileID& tileID,
+                                       const WorldCoordinateHelper& helper) {
     MLN_TRACE_FUNC();
 
     const double size = util::EXTENT * std::pow(2, tileID.z);
     const double x0 = util::EXTENT * static_cast<double>(tileID.x);
     const double y0 = util::EXTENT * static_cast<double>(tileID.y);
+    const bool mercator = isMercator(helper);
 
     auto tileCoordinatesToLatLng = [&](const Point<int16_t>& p) {
+        if (!mercator) {
+            const LatLng latLng = helper.latLngFromWorld({(p.x + x0) / size, (p.y + y0) / size});
+            return Point<double>(latLng.longitude(), latLng.latitude());
+        }
         double y2 = 180 - (p.y + y0) * 360 / size;
         return Point<double>((p.x + x0) * 360 / size - 180, std::atan(std::exp(y2 * pi / 180)) * 360.0 / pi - 90.0);
     };
@@ -282,10 +289,12 @@ GeometryCollection convertGeometry(const Feature::geometry_type& geometryTileFea
         [](const auto&) -> GeometryCollection { return GeometryCollection(); });
 }
 
-Feature convertFeature(const GeometryTileFeature& geometryTileFeature, const CanonicalTileID& tileID) {
+Feature convertFeature(const GeometryTileFeature& geometryTileFeature,
+                       const CanonicalTileID& tileID,
+                       const WorldCoordinateHelper& helper) {
     MLN_TRACE_FUNC();
 
-    Feature feature{convertGeometry(geometryTileFeature, tileID)};
+    Feature feature{convertGeometry(geometryTileFeature, tileID, helper)};
     feature.properties = geometryTileFeature.getProperties();
     feature.id = geometryTileFeature.getID();
     return feature;

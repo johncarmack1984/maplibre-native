@@ -109,6 +109,7 @@ void Transform::jumpTo(const CameraOptions& camera) {
  */
 void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions& animation) {
     CameraOptions camera = inputCamera;
+    const bool wraps = state.getProjection().worldCoordinateHelper().wraps();
 
     Duration duration = animation.duration.value_or(Duration::zero());
     if (state.getLatLngBounds() == LatLngBounds() && !isGestureInProgress() && duration != Duration::zero()) {
@@ -123,7 +124,8 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
     const EdgeInsets& padding = camera.padding.value_or(state.getEdgeInsets());
     LatLng startLatLng = getLatLng(LatLng::Unwrapped);
     const LatLng& unwrappedLatLng = camera.center.value_or(startLatLng);
-    const LatLng& latLng = state.getLatLngBounds() != LatLngBounds() ? unwrappedLatLng : unwrappedLatLng.wrapped();
+    const LatLng& latLng = state.getLatLngBounds() != LatLngBounds() || !wraps ? unwrappedLatLng
+                                                                               : unwrappedLatLng.wrapped();
 
     double bearing = camera.bearing ? util::deg2rad(-*camera.bearing) : getBearing();
     double pitch = camera.pitch ? util::deg2rad(*camera.pitch) : getPitch();
@@ -138,7 +140,7 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
         return;
     }
 
-    if (state.getLatLngBounds() == LatLngBounds()) {
+    if (state.getLatLngBounds() == LatLngBounds() && wraps) {
         if (isGestureInProgress()) {
             // If gesture in progress, we transfer the wrap rounds from the end
             // longitude into start, so the "scroll effect" of rounding the
@@ -153,8 +155,8 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
     }
     const double startCenterAlt = state.getCenterAltitude();
 
-    const Point<double> startPoint = Projection::project(startLatLng, state.getScale());
-    const Point<double> endPoint = Projection::project(latLng, state.getScale());
+    const Point<double> startPoint = state.getProjection().project(startLatLng, state.getScale());
+    const Point<double> endPoint = state.getProjection().project(latLng, state.getScale());
 
     // Constrain camera options.
     zoom = util::clamp(zoom, state.getMinZoom(), state.getMaxZoom());
@@ -181,7 +183,8 @@ void Transform::easeTo(const CameraOptions& inputCamera, const AnimationOptions&
         animation,
         [=, this](double t) {
             Point<double> framePoint = util::interpolate(startPoint, endPoint, t);
-            LatLng frameLatLng = Projection::unproject(framePoint, state.zoomScale(startZoom));
+            LatLng frameLatLng = state.getProjection().unproject(
+                framePoint, state.zoomScale(startZoom), LatLng::Unwrapped);
             double frameZoom = util::interpolate(startZoom, zoom, t);
             state.setLatLngZoom(frameLatLng, frameZoom);
             state.setCenterAltitude(util::interpolate(startCenterAlt, centerAlt, t));
@@ -222,12 +225,14 @@ void Transform::flyTo(const CameraOptions& inputCamera,
                       const AnimationOptions& animation,
                       bool linearZoomInterpolation) {
     CameraOptions camera = inputCamera;
+    const bool wraps = state.getProjection().worldCoordinateHelper().wraps();
 
     double zoom = camera.zoom.value_or(getZoom());
     state.constrainCameraAndZoomToBounds(camera, zoom);
 
     const EdgeInsets& padding = camera.padding.value_or(state.getEdgeInsets());
-    const LatLng& latLng = camera.center.value_or(getLatLng(LatLng::Unwrapped)).wrapped();
+    const LatLng target = camera.center.value_or(getLatLng(LatLng::Unwrapped));
+    const LatLng latLng = wraps ? target.wrapped() : target;
     const double centerAlt = camera.centerAltitude.value_or(state.getCenterAltitude());
     double bearing = camera.bearing ? util::deg2rad(-*camera.bearing) : getBearing();
     double pitch = camera.pitch ? util::deg2rad(*camera.pitch) : getPitch();
@@ -243,12 +248,15 @@ void Transform::flyTo(const CameraOptions& inputCamera,
     }
 
     // Determine endpoints.
-    LatLng startLatLng = getLatLng(LatLng::Unwrapped).wrapped();
-    startLatLng.unwrapForShortestPath(latLng);
+    LatLng startLatLng = getLatLng(LatLng::Unwrapped);
+    if (wraps) {
+        startLatLng = startLatLng.wrapped();
+        startLatLng.unwrapForShortestPath(latLng);
+    }
     const double startCenterAlt = state.getCenterAltitude();
 
-    const Point<double> startPoint = Projection::project(startLatLng, state.getScale());
-    const Point<double> endPoint = Projection::project(latLng, state.getScale());
+    const Point<double> startPoint = state.getProjection().project(startLatLng, state.getScale());
+    const Point<double> endPoint = state.getProjection().project(latLng, state.getScale());
 
     // Constrain camera options.
     zoom = util::clamp(zoom, state.getMinZoom(), state.getMaxZoom());
@@ -374,7 +382,7 @@ void Transform::flyTo(const CameraOptions& inputCamera,
             }
 
             // Convert to geographic coordinates and set the new viewpoint.
-            LatLng frameLatLng = Projection::unproject(framePoint, startScale);
+            LatLng frameLatLng = state.getProjection().unproject(framePoint, startScale, LatLng::Unwrapped);
             state.setLatLngZoom(frameLatLng, frameZoom);
             state.setCenterAltitude(util::interpolate(startCenterAlt, centerAlt, us));
             if (bearing != startBearing) {
@@ -525,7 +533,11 @@ double Transform::getFieldOfView() const {
     return state.getFieldOfView();
 }
 
-// MARK: - North Orientation
+// MARK: - Projection
+
+void Transform::setProjectionDefinition(const ProjectionDefinition& definition) {
+    state.setProjectionDefinition(definition);
+}
 
 void Transform::setNorthOrientation(NorthOrientation orientation) {
     state.setNorthOrientation(orientation);

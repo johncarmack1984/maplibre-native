@@ -436,6 +436,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mln/util/constants.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/containers.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/convert.hpp
+    ${PROJECT_SOURCE_DIR}/include/mln/util/crs.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/default_style.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/enum.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/event.hpp
@@ -471,6 +472,7 @@ list(APPEND INCLUDE_FILES
     ${PROJECT_SOURCE_DIR}/include/mln/util/string.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/symbol_error_observer.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/thread.hpp
+    ${PROJECT_SOURCE_DIR}/include/mln/util/tile_matrix_set.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/tile_server_options.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/tileset.hpp
     ${PROJECT_SOURCE_DIR}/include/mln/util/timer.hpp
@@ -576,6 +578,8 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mln/map/transform.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/transform_state.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/transform_state.hpp
+    ${PROJECT_SOURCE_DIR}/src/mln/map/world_coordinate_helper.cpp
+    ${PROJECT_SOURCE_DIR}/src/mln/map/world_coordinate_helper.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/map/zoom_history.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/math/log2.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/platform/settings.cpp
@@ -975,6 +979,8 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mln/util/font_stack.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/util/geo.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/util/geojson_impl.cpp
+    ${PROJECT_SOURCE_DIR}/src/mln/util/geojson_reproject.cpp
+    ${PROJECT_SOURCE_DIR}/src/mln/util/geojson_reproject.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/util/geometry_util.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/util/geometry_util.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/util/grid_index.cpp

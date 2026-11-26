@@ -122,6 +122,9 @@ public:
     std::vector<ScreenCoordinate> pixelsForLatLngs(const std::vector<LatLng>&) const;
     std::vector<LatLng> latLngsForPixels(const std::vector<ScreenCoordinate>&,
                                          LatLng::WrapMode = LatLng::Wrapped) const;
+    /// The meters on the ground a pixel spans at a location, at the current zoom: Mercator's scale at its latitude, or
+    /// in a registered projection the distance across a pixel there along the projection's x axis.
+    double getMetersPerPixelAt(const LatLng&) const;
 
     // Transform
     TransformState getTransformState() const;

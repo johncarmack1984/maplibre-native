@@ -3,7 +3,9 @@
 #include <mln/map/camera.hpp>
 #include <mln/map/map.hpp>
 #include <mln/map/map_impl.hpp>
+#include <mln/map/projection_base.hpp>
 #include <mln/map/transform.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
 #include <mln/math/angles.hpp>
 #include <mln/math/log2.hpp>
 #include <mln/renderer/renderer_frontend.hpp>
@@ -188,6 +190,10 @@ CameraOptions Map::cameraForLatLngBounds(const LatLngBounds& bounds,
                                          const EdgeInsets& padding,
                                          const std::optional<double>& bearing,
                                          const std::optional<double>& pitch) const {
+    // In a world that does not wrap the box's edges can curve, as a parallel does around a pole: fit all of it.
+    if (!impl->transform.getState().getProjection().worldCoordinateHelper().wraps()) {
+        return cameraForLatLngs(latLngBoxSamples(bounds), padding, bearing, pitch);
+    }
     return cameraForLatLngs(
         {
             bounds.northwest(),
@@ -448,6 +454,34 @@ std::vector<LatLng> Map::latLngsForPixels(const std::vector<ScreenCoordinate>& s
         ret.emplace_back(latLngForPixel(point, wrapMode));
     }
     return ret;
+}
+
+namespace {
+
+/// The great-circle distance between two locations, on the sphere Mercator's scale uses.
+double groundDistance(const LatLng& a, const LatLng& b) {
+    const double latitudeA = util::deg2rad(a.latitude());
+    const double latitudeB = util::deg2rad(b.latitude());
+    const double sinHalfLatitude = std::sin((latitudeB - latitudeA) / 2);
+    const double sinHalfLongitude = std::sin(util::deg2rad(b.longitude() - a.longitude()) / 2);
+    const double h = (sinHalfLatitude * sinHalfLatitude) +
+                     (std::cos(latitudeA) * std::cos(latitudeB) * sinHalfLongitude * sinHalfLongitude);
+    return 2 * util::EARTH_RADIUS_M * std::asin(std::min(1.0, std::sqrt(h)));
+}
+
+} // namespace
+
+double Map::getMetersPerPixelAt(const LatLng& latLng) const {
+    const auto& state = impl->transform.getState();
+    const auto& helper = state.getProjection().worldCoordinateHelper();
+    if (isMercator(helper)) {
+        return mln::Projection::getMetersPerPixelAtLatitude(latLng.latitude(), state.getZoom());
+    }
+    const double pixel = 1.0 / mln::Projection::worldSize(state.getScale());
+    const Point<double> world = helper.worldFromLatLng(latLng);
+    return groundDistance(helper.latLngFromWorld({world.x - pixel, world.y}),
+                          helper.latLngFromWorld({world.x + pixel, world.y})) /
+           2;
 }
 
 // MARK: - Transform

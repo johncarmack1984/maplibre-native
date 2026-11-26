@@ -65,6 +65,10 @@ StyleProperty Projection::getProperty(const std::string& name) const {
     return {};
 }
 
+std::string Projection::Impl::registeredName() const {
+    return type.isConstant() ? type.asConstant().registered : std::string();
+}
+
 ProjectionDefinition Projection::Impl::evaluate(float zoom) const {
     const PropertyEvaluationParameters parameters(zoom);
     return type.evaluate(PropertyEvaluator<ProjectionDefinition>(parameters, Projection::getDefaultType()));

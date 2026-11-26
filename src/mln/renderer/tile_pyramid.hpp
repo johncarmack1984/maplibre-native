@@ -12,14 +12,19 @@
 #include <mln/util/feature.hpp>
 #include <mln/util/range.hpp>
 
+#include <array>
 #include <memory>
+#include <optional>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <map>
 
 namespace mln {
 
 class PaintParameters;
+class WorldCoordinateHelper;
 class TransformState;
 class RenderLayer;
 class RenderedQueryOptions;
@@ -59,7 +64,9 @@ public:
         const mat4& projMatrix,
         const mln::SourceFeatureState& featureState) const;
 
-    std::vector<Feature> querySourceFeatures(const SourceQueryOptions&, const GlobalStateMap*) const;
+    std::vector<Feature> querySourceFeatures(const SourceQueryOptions&,
+                                             const GlobalStateMap*,
+                                             const WorldCoordinateHelper&) const;
 
     void setCacheEnabled(bool);
     void reduceMemoryUse();
@@ -83,6 +90,10 @@ private:
     TileObserver* observer = nullptr;
 
     float prevLng = 0;
+
+    /// The source's bounds in the world square of the projection named, kept until either changes.
+    std::optional<std::pair<std::string, LatLngBounds>> boundsWorldBoxKey;
+    std::array<double, 4> boundsWorldBox{};
 
     bool fadingTiles = false;
     bool cacheEnabled = true;

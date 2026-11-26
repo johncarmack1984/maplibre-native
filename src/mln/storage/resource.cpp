@@ -39,6 +39,18 @@ std::string getTileBBox(int32_t x, int32_t y, int8_t z) {
     return (util::toString(min.x) + "," + util::toString(min.y) + "," + util::toString(max.x) + "," +
             util::toString(max.y));
 }
+
+// The tile's box in the tile matrix set's units, y up.
+std::string getTileBBox(int32_t x, int32_t y, int8_t z, const TileMatrixSet& tileMatrixSet) {
+    const double tilesAtZoom = std::pow(2, z);
+    const double tileExtent = tileMatrixSet.extentAtZoom0 / tilesAtZoom;
+    const double gridMinX = tileMatrixSet.origin[0];
+    const double gridMinY = tileMatrixSet.origin[1] - tileMatrixSet.extentAtZoom0;
+    const double rowFromBottom = tilesAtZoom - y - 1;
+    return util::toString(gridMinX + x * tileExtent) + "," + util::toString(gridMinY + rowFromBottom * tileExtent) +
+           "," + util::toString(gridMinX + (x + 1) * tileExtent) + "," +
+           util::toString(gridMinY + (rowFromBottom + 1) * tileExtent);
+}
 } // namespace
 
 Resource Resource::style(const std::string& url) {
@@ -92,8 +104,11 @@ Resource Resource::tile(const std::string& urlTemplate,
                         int32_t y,
                         int8_t z,
                         Tileset::Scheme scheme,
-                        LoadingMethod loadingMethod) {
+                        LoadingMethod loadingMethod,
+                        const TileMatrixSet* tileMatrixSet) {
     bool supportsRatio = urlTemplate.find("{ratio}") != std::string::npos;
+    // The scheme flips `{y}`, as in GL JS; `{bbox}` is the box of the tile itself.
+    const int32_t tileY = y;
     if (scheme == Tileset::Scheme::TMS) {
         y = (1 << z) - y - 1;
     }
@@ -110,6 +125,9 @@ Resource Resource::tile(const std::string& urlTemplate,
                                                 return getQuadKey(x, y, z);
                                             } else if (token == "bbox-epsg-3857") {
                                                 return getTileBBox(x, y, z);
+                                            } else if (token == "bbox") {
+                                                return tileMatrixSet ? getTileBBox(x, tileY, z, *tileMatrixSet)
+                                                                     : getTileBBox(x, tileY, z);
                                             } else if (token == "prefix") {
                                                 return {{
                                                     "0123456789abcdef"[x % 16],
