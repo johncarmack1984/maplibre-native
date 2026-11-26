@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
 option(MLN_WITH_CORE_ONLY "Build only the core bits, no platform code" OFF)
 option(MLN_WITH_PLUGINS "Build source-bound native plugin layers" OFF)
+option(MLN_WITH_LEGACY_ANNOTATIONS "Build the legacy annotation API and add its source and layer to every style" ON)
 option(MLN_WITH_GLOBE "Build the globe projection; without it a style's globe draws Mercator" ON)
 option(MLN_WITH_CLANG_TIDY "Build with clang-tidy checks enabled" OFF)
 option(MLN_WITH_COVERAGE "Enable code coverage collection" OFF)
@@ -17,6 +18,7 @@ option(MLN_WITH_METAL "Build with Metal renderer" OFF)
 option(MLN_WITH_WEBGPU "Build with WebGPU renderer" OFF)
 option(MLN_WITH_PMTILES "Build with PMTiles support" ON)
 option(MLN_WITH_WERROR "Make all compilation warnings errors" ON)
+option(MLN_WITH_TOOLS "Build the command line tools in bin/" OFF)
 option(MLN_USE_UNORDERED_DENSE "Use ankerl dense containers for performance" ON)
 option(MLN_USE_TRACY "Enable Tracy instrumentation" OFF)
 option(MLN_USE_RUST "Use components in Rust" OFF)
@@ -146,6 +148,13 @@ else()
 endif()
 
 include(cmake/plugins.cmake)
+
+if(NOT MLN_WITH_LEGACY_ANNOTATIONS)
+    target_compile_definitions(
+        mbgl-core
+        PUBLIC MLN_LEGACY_ANNOTATIONS_DISABLED
+    )
+endif()
 
 if(MLN_WITH_GLOBE)
     target_compile_definitions(mbgl-core PUBLIC MLN_WITH_GLOBE=1)
@@ -1289,6 +1298,7 @@ if(_can_export)
 endif()
 
 if(MLN_WITH_VULKAN)
+    include(${PROJECT_SOURCE_DIR}/vendor/glslang.cmake)
     include(${PROJECT_SOURCE_DIR}/vendor/vulkan.cmake)
 
     target_link_libraries(
@@ -1341,6 +1351,8 @@ endif()
 
 include(${PROJECT_SOURCE_DIR}/scripts/license.cmake)
 
+include(${PROJECT_SOURCE_DIR}/platform/default/sources.cmake)
+
 if(MLN_WITH_QT)
     include(${PROJECT_SOURCE_DIR}/platform/qt/qt.cmake)
 elseif(CMAKE_SYSTEM_NAME STREQUAL Android)
@@ -1361,6 +1373,7 @@ else()
     message(FATAL_ERROR "Unsupported target platform: " ${CMAKE_SYSTEM_NAME})
 endif()
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/bin)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
 add_subdirectory(${PROJECT_SOURCE_DIR}/benchmark)
 add_subdirectory(${PROJECT_SOURCE_DIR}/render-test)

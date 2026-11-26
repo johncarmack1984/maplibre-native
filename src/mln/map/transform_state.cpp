@@ -120,9 +120,19 @@ void TransformState::setProjectionDefinition(const ProjectionDefinition& definit
         setRegisteredProjection(definition.registered);
     }
     if (!definition.registered.empty()) {
+        requestedProjectionTransition = 0;
         return;
     }
-    const double transition = util::GLOBE_ENABLED ? definition.transitionState() : 0.0;
+    requestedProjectionTransition = definition.transitionState();
+    updateProjectionTransition();
+}
+
+double TransformState::drawnProjectionTransition(double transition) const {
+    return util::GLOBE_ENABLED && viewportMode != ViewportMode::FlippedY ? transition : 0.0;
+}
+
+void TransformState::updateProjectionTransition() {
+    const double transition = drawnProjectionTransition(requestedProjectionTransition);
     if (transition == projectionTransition) {
         return;
     }
@@ -578,6 +588,7 @@ void TransformState::setViewportMode(ViewportMode val) {
     if (viewportMode != val) {
         viewportMode = val;
         requestMatricesUpdate = true;
+        updateProjectionTransition();
     }
 }
 
@@ -995,7 +1006,7 @@ TileCoordinate TransformState::mercatorScreenCoordinateToTileCoordinate(const Sc
 }
 
 LatLng TransformState::screenCoordinateToLatLng(const ScreenCoordinate& point, LatLng::WrapMode wrapMode) const {
-    if (isGlobeRendering()) {
+    if (isGlobeRendering() && !size.isEmpty()) {
         return VerticalPerspectiveProjection::screenCoordinateToLatLng(*this, point, wrapMode);
     }
     auto coord = screenCoordinateToTileCoordinate(point, 0);
