@@ -10,6 +10,11 @@ static NSString *const MLNTestPolarProjectionName = @"test:ios-polar";
 static const double MLNTestPolarScale = 6378137 * (1 + 0.9396926207859083);
 static const double MLNTestPolarExtent = 8388608;
 
+// GL JS's meters per point at 70 N, 45 W at zoom 4, as its geolocate control measures them: the
+// distance to the point 100 points to the right, over 100. Mercator's would be about 1.6 times as
+// much.
+static const CLLocationDistance MLNTestMetersPerPointAt70N = 1022.8325840486776;
+
 @interface MLNMapViewRegisteredProjectionTests : XCTestCase
 
 @property (nonatomic) MLNMapView *mapView;
@@ -80,10 +85,8 @@ static const double MLNTestPolarExtent = 8388608;
 - (void)testMetersPerPointIsTheProjectionsScale {
     [self.mapView setCenterCoordinate:CLLocationCoordinate2DMake(70, -45) zoomLevel:4 animated:NO];
 
-    // True to scale at 70 N: a point there spans the extent at zoom 0 over the world's width in points.
-    // Mercator's scale there would be about 1.6 times as much.
-    double expected = MLNTestPolarExtent / (512 * pow(2, 4));
-    XCTAssertEqualWithAccuracy([self.mapView metersPerPointAtLatitude:70], expected, expected * 1e-6);
+    XCTAssertEqualWithAccuracy([self.mapView metersPerPointAtLatitude:70], MLNTestMetersPerPointAt70N,
+                               MLNTestMetersPerPointAt70N * 1e-9);
 }
 
 - (void)testScaleBarShowsTheProjectionsScale {
@@ -91,9 +94,40 @@ static const double MLNTestPolarExtent = 8388608;
     [self.mapView setCenterCoordinate:CLLocationCoordinate2DMake(70, -45) zoomLevel:4 animated:NO];
     [self.mapView layoutIfNeeded];
 
-    double expected = MLNTestPolarExtent / (512 * pow(2, 4));
     MLNScaleBar *scaleBar = (MLNScaleBar *)self.mapView.scaleBar;
-    XCTAssertEqualWithAccuracy(scaleBar.metersPerPoint, expected, expected * 1e-6);
+    XCTAssertEqualWithAccuracy(scaleBar.metersPerPoint, MLNTestMetersPerPointAt70N,
+                               MLNTestMetersPerPointAt70N * 1e-9);
+}
+
+- (void)testMapProjectionMeasuresAsTheMapView {
+    [self.mapView setCenterCoordinate:CLLocationCoordinate2DMake(70, -45) zoomLevel:4 animated:NO];
+    MLNMapProjection *projection = self.mapView.mapProjection;
+
+    XCTAssertEqualWithAccuracy(projection.metersPerPoint, MLNTestMetersPerPointAt70N,
+                               MLNTestMetersPerPointAt70N * 1e-9);
+    CLLocationDistance altitude = self.mapView.camera.altitude;
+    XCTAssertEqualWithAccuracy(projection.camera.altitude, altitude, altitude * 1e-9);
+
+    MLNMapCamera *camera = projection.camera;
+    camera.altitude *= 4;
+    [projection setCamera:camera withEdgeInsets:UIEdgeInsetsZero];
+    XCTAssertEqualWithAccuracy(projection.camera.altitude, camera.altitude, camera.altitude * 1e-9);
+    [self.mapView setCamera:camera animated:NO];
+    XCTAssertEqualWithAccuracy(self.mapView.zoomLevel, 2, 1e-9);
+    CLLocationDistance metersPerPoint = [self.mapView metersPerPointAtLatitude:70];
+    XCTAssertEqualWithAccuracy(projection.metersPerPoint, metersPerPoint, metersPerPoint * 1e-9);
+}
+
+- (void)testMetersPerPointAcrossTheAntimeridian {
+    // The projection's inverse answers longitudes down to -225, so the center comes back as -190.
+    [self.mapView setCenterCoordinate:CLLocationCoordinate2DMake(75, 170) zoomLevel:4 animated:NO];
+    XCTAssertEqualWithAccuracy(self.mapView.centerCoordinate.longitude, -190, 1e-6);
+
+    CLLocationDistance metersPerPoint = [self.mapView metersPerPointAtLatitude:75];
+    CLLocationDistance mercator = 2 * M_PI * 6378137 * cos(75 * M_PI / 180) / (512 * pow(2, 4));
+    XCTAssertLessThan(metersPerPoint, mercator * 0.9);
+    MLNMapProjection *projection = self.mapView.mapProjection;
+    XCTAssertEqualWithAccuracy(projection.metersPerPoint, metersPerPoint, metersPerPoint * 1e-9);
 }
 
 - (void)testCameraAltitudeCountsTheProjectionsUnitsAsMeters {

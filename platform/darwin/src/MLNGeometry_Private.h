@@ -36,7 +36,8 @@ CGRect MLNExtendRect(CGRect rect, CGPoint point);
 
 namespace mln {
 class Map;
-}
+class MapProjection;
+}  // namespace mln
 
 /// Whether the map draws in a projection registered with `+[MLNStyle addProjection:error:]`.
 BOOL MLNMapIsInRegisteredProjection(const mln::Map *map);
@@ -47,14 +48,23 @@ BOOL MLNMapIsInRegisteredProjection(const mln::Map *map);
 CLLocationDistance MLNMetersPerPointAtCoordinate(const mln::Map *map,
                                                  CLLocationCoordinate2D coordinate,
                                                  double zoomLevel);
+CLLocationDistance MLNMetersPerPointAtCoordinate(const mln::MapProjection *projection,
+                                                 CLLocationCoordinate2D coordinate,
+                                                 double zoomLevel);
 
 /// `MLNAltitudeForZoomLevel` for the map, counting a registered projection's units as meters.
 CLLocationDistance MLNAltitudeForZoomLevelInMap(const mln::Map *map, double zoomLevel,
                                                 CGFloat pitch, CLLocationDegrees latitude,
                                                 CGSize size);
+CLLocationDistance MLNAltitudeForZoomLevelInMap(const mln::MapProjection *projection,
+                                                double zoomLevel, CGFloat pitch,
+                                                CLLocationDegrees latitude, CGSize size);
 
 /// `MLNZoomLevelForAltitude` for the map, counting a registered projection's units as meters.
 double MLNZoomLevelForAltitudeInMap(const mln::Map *map, CLLocationDistance altitude, CGFloat pitch,
+                                    CLLocationDegrees latitude, CGSize size);
+double MLNZoomLevelForAltitudeInMap(const mln::MapProjection *projection,
+                                    CLLocationDistance altitude, CGFloat pitch,
                                     CLLocationDegrees latitude, CGSize size);
 
 #if TARGET_OS_IPHONE
