@@ -1,8 +1,6 @@
 #pragma once
 
 #include <mln/style/conversion.hpp>
-#include <mln/style/projection_definition.hpp>
-#include <mln/style/property_value.hpp>
 #include <mln/style/style_property.hpp>
 #include <mln/util/immutable.hpp>
 
@@ -22,10 +20,6 @@ public:
 
     std::optional<conversion::Error> setProperty(const std::string& name, const conversion::Convertible& value);
     StyleProperty getProperty(const std::string&) const;
-
-    /// Undefined when the type names a registered projection, see `addProjection`; `getProperty("type")` has its name.
-    PropertyValue<ProjectionDefinition> getType() const;
-    void setType(PropertyValue<ProjectionDefinition>);
 
     class Impl;
     Immutable<Impl> impl;

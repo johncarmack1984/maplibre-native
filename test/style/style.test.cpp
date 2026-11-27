@@ -86,19 +86,20 @@ TEST(Style, Projection) {
     Style::Impl style{fileSource, 1.0, {Scheduler::GetBackground(), {}}};
 
     style.loadJSON(R"STYLE({"projection": {"type": "globe"}})STYLE");
-    ASSERT_EQ(ProjectionDefinition(ProjectionType::Globe), style.getProjection()->getType().asConstant());
+    ASSERT_EQ(mln::Value("globe"), style.getProjection()->getProperty("type").getValue());
 
     style.loadJSON(R"STYLE({})STYLE");
-    ASSERT_TRUE(style.getProjection()->getType().isUndefined());
+    ASSERT_EQ(StyleProperty::Kind::Undefined, style.getProjection()->getProperty("type").getKind());
 
     auto projection = std::make_unique<Projection>();
-    projection->setType(ProjectionDefinition(ProjectionType::VerticalPerspective));
+    const JSValue verticalPerspective("vertical-perspective");
+    ASSERT_FALSE(projection->setProperty("type", &verticalPerspective));
     style.setProjection(std::move(projection));
-    ASSERT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), style.getProjection()->getType().asConstant());
+    ASSERT_EQ(mln::Value("vertical-perspective"), style.getProjection()->getProperty("type").getValue());
 
     // A name that is not a projection keeps the default, with a warning.
     style.loadJSON(R"STYLE({"projection": {"type": "orthographic"}})STYLE");
-    ASSERT_TRUE(style.getProjection()->getType().isUndefined());
+    ASSERT_EQ(StyleProperty::Kind::Undefined, style.getProjection()->getProperty("type").getKind());
 }
 
 TEST(Style, GlobalState) {

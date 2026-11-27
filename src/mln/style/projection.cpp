@@ -1,11 +1,11 @@
 #include <mln/style/projection.hpp>
 #include <mln/style/projection_impl.hpp>
-#include <mln/style/projection_names.hpp>
 #include <mln/style/projection_observer.hpp>
-#include <mln/style/conversion/property_value.hpp>
 #include <mln/style/conversion_impl.hpp>
 #include <mln/map/world_coordinate_helper.hpp>
 #include <mln/util/logging.hpp>
+
+#include <string_view>
 
 namespace mln {
 namespace style {
@@ -13,35 +13,9 @@ namespace style {
 namespace {
 ProjectionObserver nullObserver;
 
-void setTypeAndName(Projection& projection, PropertyValue<ProjectionDefinition> type, std::string registeredName) {
-    auto impl = projection.mutableImpl();
-    impl->type = std::move(type);
-    impl->registeredProjection = registeredName.empty() ? nullptr : getRegisteredProjection(registeredName);
-    if (!registeredName.empty() && !impl->registeredProjection) {
-        Log::Warning(Event::General,
-                     "Unknown projection name \"" + registeredName + "\". Falling back to mercator projection.");
-    }
-    impl->registeredName = std::move(registeredName);
-    projection.impl = std::move(impl);
-    projection.observer->onProjectionChanged(projection);
-}
-
-/// The first registered projection a projection expression names anywhere in its arrays, as GL JS looks for one.
-std::optional<std::string> registeredProjectionIn(const conversion::Convertible& value) {
-    if (auto name = toString(value)) {
-        if (getRegisteredProjection(*name)) {
-            return name;
-        }
-        return std::nullopt;
-    }
-    if (isArray(value)) {
-        for (std::size_t i = 0; i < arrayLength(value); ++i) {
-            if (auto name = registeredProjectionIn(arrayMember(value, i))) {
-                return name;
-            }
-        }
-    }
-    return std::nullopt;
+/// `identity`, or a name with a colon, which is how registered projections are named.
+bool isRegisteredProjectionName(std::string_view name) {
+    return name == "identity" || name.find(':') != std::string_view::npos;
 }
 
 } // namespace
@@ -63,43 +37,41 @@ Mutable<Projection::Impl> Projection::mutableImpl() const {
     return makeMutable<Impl>(*impl);
 }
 
-PropertyValue<ProjectionDefinition> Projection::getType() const {
-    return impl->type;
-}
-
-void Projection::setType(PropertyValue<ProjectionDefinition> type) {
-    setTypeAndName(*this, std::move(type), {});
-}
-
 std::optional<conversion::Error> Projection::setProperty(const std::string& name,
                                                          const conversion::Convertible& value) {
     if (name != "type") {
         return conversion::Error{"projection doesn't support this property"};
     }
-    if (const auto registeredName = toString(value); registeredName && isRegisteredProjectionName(*registeredName)) {
-        setTypeAndName(*this, {}, *registeredName);
-        return std::nullopt;
+    std::string type;
+    if (auto string = toString(value)) {
+        type = std::move(*string);
+        if (type == "vertical-perspective" || type == "globe") {
+            Log::Warning(Event::Style,
+                         "The globe projection is not supported yet, so the style's projection draws as Mercator");
+        } else if (type != "mercator" && !isRegisteredProjectionName(type)) {
+            return conversion::Error{"projection type must be mercator, vertical-perspective or globe"};
+        }
+    } else if (isArray(value) || isObject(value)) {
+        Log::Warning(Event::Style,
+                     "Projection expressions are not supported yet, so the style's projection draws as Mercator");
+    } else if (!isUndefined(value)) {
+        return conversion::Error{"value must be a string or an array of [from, to, transition]"};
     }
-    conversion::Error error;
-    const auto type = conversion::convert<PropertyValue<ProjectionDefinition>>(value, error, false, false);
-    if (!type) {
-        return error;
+
+    auto impl_ = mutableImpl();
+    impl_->registeredProjection = isRegisteredProjectionName(type) ? getRegisteredProjection(type) : nullptr;
+    if (isRegisteredProjectionName(type) && !impl_->registeredProjection) {
+        Log::Warning(Event::General, "Unknown projection name \"" + type + "\". Falling back to mercator projection.");
     }
-    if (const auto registeredName = registeredProjectionIn(value)) {
-        Log::Warning(Event::ParseStyle,
-                     "Projection expressions cannot use the registered projection \"" + *registeredName +
-                         "\", which only works as a plain name. Falling back to the globe projection.");
-    }
-    setType(*type);
+    impl_->type = std::move(type);
+    impl = std::move(impl_);
+    observer->onProjectionChanged(*this);
     return std::nullopt;
 }
 
 StyleProperty Projection::getProperty(const std::string& name) const {
-    if (name == "type") {
-        if (!impl->registeredName.empty()) {
-            return {impl->registeredName, StyleProperty::Kind::Constant};
-        }
-        return conversion::makeStyleProperty(getType());
+    if (name == "type" && !impl->type.empty()) {
+        return {impl->type, StyleProperty::Kind::Constant};
     }
     return {};
 }

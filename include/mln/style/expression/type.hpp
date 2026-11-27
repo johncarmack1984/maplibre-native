@@ -49,12 +49,6 @@ struct PaddingType {
     bool operator==(const PaddingType&) const { return true; }
 };
 
-struct ProjectionDefinitionType {
-    constexpr ProjectionDefinitionType() = default;
-    std::string getName() const { return "projectionDefinition"; }
-    bool operator==(const ProjectionDefinitionType&) const { return true; }
-};
-
 struct VariableAnchorOffsetCollectionType {
     constexpr VariableAnchorOffsetCollectionType() = default;
     std::string getName() const { return "variableAnchorOffsetCollection"; }
@@ -103,7 +97,6 @@ constexpr StringType String;
 constexpr BooleanType Boolean;
 constexpr ColorType Color;
 constexpr PaddingType Padding;
-constexpr ProjectionDefinitionType ProjectionDefinition;
 constexpr VariableAnchorOffsetCollectionType VariableAnchorOffsetCollection;
 constexpr ValueType Value;
 constexpr ObjectType Object;
@@ -120,7 +113,6 @@ using Type = variant<NullType,
                      StringType,
                      ColorType,
                      PaddingType,
-                     ProjectionDefinitionType,
                      VariableAnchorOffsetCollectionType,
                      ObjectType,
                      ValueType,

@@ -134,11 +134,6 @@ void stringify(Writer& writer, const Value& v) {
 }
 
 template <class Writer>
-void stringify(Writer& writer, const ProjectionDefinition& v) {
-    stringify(writer, v.serialize());
-}
-
-template <class Writer>
 void stringify(Writer& writer, FeatureType type) {
     switch (type) {
         case FeatureType::Unknown:

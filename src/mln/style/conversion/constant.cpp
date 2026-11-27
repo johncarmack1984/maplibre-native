@@ -1,6 +1,5 @@
 #include <mln/style/conversion/constant.hpp>
 #include <mln/style/conversion_impl.hpp>
-#include <mln/style/projection_names.hpp>
 
 namespace mln {
 namespace style {
@@ -137,31 +136,6 @@ std::optional<std::vector<Color>> Converter<std::vector<Color>>::operator()(cons
     }
 
     return result;
-}
-
-std::optional<ProjectionDefinition> Converter<ProjectionDefinition>::operator()(const Convertible& value,
-                                                                                Error& error) const {
-    if (const std::optional<std::string> name = toString(value)) {
-        if (const auto type = projectionTypeFromName(*name)) {
-            return ProjectionDefinition(*type);
-        }
-        error.message = "projection type must be mercator, vertical-perspective or globe";
-        return std::nullopt;
-    }
-    if (isArray(value) && arrayLength(value) == 3) {
-        const std::optional<std::string> fromName = toString(arrayMember(value, 0));
-        const std::optional<std::string> toName = toString(arrayMember(value, 1));
-        const std::optional<double> transition = toDouble(arrayMember(value, 2));
-        if (fromName && toName && transition) {
-            if (auto definition = projectionDefinitionInExpression(*fromName, *toName, *transition)) {
-                return definition;
-            }
-            error.message = "projection type must be mercator, vertical-perspective or globe";
-            return std::nullopt;
-        }
-    }
-    error.message = "value must be a string or an array of [from, to, transition]";
-    return std::nullopt;
 }
 
 std::optional<Padding> Converter<Padding>::operator()(const Convertible& value, Error& error) const {

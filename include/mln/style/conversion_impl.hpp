@@ -320,11 +320,6 @@ struct ValueFactory<Padding> {
 };
 
 template <>
-struct ValueFactory<ProjectionDefinition> {
-    static Value make(const ProjectionDefinition& projection) { return projection.serialize(); }
-};
-
-template <>
 struct ValueFactory<VariableAnchorOffsetCollection> {
     static Value make(const VariableAnchorOffsetCollection& variableAnchorOffset) {
         return variableAnchorOffset.serialize();
