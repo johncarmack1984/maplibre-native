@@ -216,7 +216,7 @@ Feature::geometry_type convertGeometry(const GeometryTileFeature& geometryTileFe
         return tileGeometry(geometryTileFeature, tileID, true);
     }
     Feature::geometry_type geometry = tileGeometry(geometryTileFeature, tileID, false);
-    convertPoints([&](auto&& visit) { mapbox::geometry::for_each_point(geometry, visit); },
+    convertPoints([&](PointBatcher& batcher) { mapbox::geometry::for_each_point(geometry, batcher); },
                   [&](std::span<const std::array<double, 2>> world, std::span<std::array<double, 2>> lngLats) {
                       helper.lngLatsFromWorld(world, lngLats);
                   });

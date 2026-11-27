@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -81,33 +82,29 @@ private:
 /// memory for every position twice over, and the page faults on it cost more than the calls the batch saves.
 inline constexpr std::size_t maxConverterBatch = 65536;
 
-/// Moves every point `forEachPoint` visits through `convert`, a helper's `worldFromLngLats` or `lngLatsFromWorld`, in
-/// place, in batches of up to `maxConverterBatch` points. `forEachPoint(fn)` calls `fn` on each `Point<double>&`.
-template <class ForEachPoint, class Convert>
-void convertPoints(ForEachPoint&& forEachPoint, Convert&& convert) {
+/// A helper's `worldFromLngLats` or `lngLatsFromWorld`, or a function that calls one.
+using PointsConverter = std::function<void(std::span<const std::array<double, 2>>, std::span<std::array<double, 2>>)>;
+
+/// Gathers the points it is called on and moves them through a converter, in place, a batch at a time.
+class PointBatcher {
+public:
+    explicit PointBatcher(const PointsConverter& convert_)
+        : convert(convert_) {}
+
+    void operator()(Point<double>&);
+    /// Converts the points gathered since the last batch.
+    void flush();
+
+private:
+    const PointsConverter& convert;
     std::vector<std::array<double, 2>> in;
     std::vector<std::array<double, 2>> out;
     std::vector<Point<double>*> points;
-    const auto flush = [&] {
-        out.resize(in.size());
-        convert(std::span<const std::array<double, 2>>(in), std::span<std::array<double, 2>>(out));
-        for (std::size_t i = 0; i < points.size(); ++i) {
-            *points[i] = {out[i][0], out[i][1]};
-        }
-        in.clear();
-        points.clear();
-    };
-    forEachPoint([&](Point<double>& point) {
-        in.push_back({point.x, point.y});
-        points.push_back(&point);
-        if (in.size() == maxConverterBatch) {
-            flush();
-        }
-    });
-    if (!in.empty()) {
-        flush();
-    }
-}
+};
+
+/// Moves every point `forEachPoint` visits through `convert`, in place, in batches of up to `maxConverterBatch` points.
+/// `forEachPoint(batcher)` calls `batcher` on each `Point<double>&`.
+void convertPoints(const std::function<void(PointBatcher&)>& forEachPoint, const PointsConverter& convert);
 
 /// A lat/lng box sampled on a grid, 17 points on a side with its edges and corners, row by row from the north-west.
 std::vector<LatLng> latLngBoxSamples(const LatLngBounds&);

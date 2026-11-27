@@ -182,18 +182,16 @@ struct Finite {
     }
 };
 
-template <class Fn>
-void forEachPoint(GeoFeatures& features, Fn&& fn) {
+void forEachPoint(GeoFeatures& features, PointBatcher& batcher) {
     for (auto& feature : features) {
-        mapbox::geometry::for_each_point(feature.geometry, fn);
+        mapbox::geometry::for_each_point(feature.geometry, batcher);
     }
 }
 
-template <class Fn>
-void forEachPoint(GeoJSON& geoJSON, Fn&& fn) {
-    geoJSON.match([&](GeoGeometry& geometry) { mapbox::geometry::for_each_point(geometry, fn); },
-                  [&](GeoFeature& feature) { mapbox::geometry::for_each_point(feature.geometry, fn); },
-                  [&](GeoFeatures& features) { forEachPoint(features, fn); });
+void forEachPoint(GeoJSON& geoJSON, PointBatcher& batcher) {
+    geoJSON.match([&](GeoGeometry& geometry) { mapbox::geometry::for_each_point(geometry, batcher); },
+                  [&](GeoFeature& feature) { mapbox::geometry::for_each_point(feature.geometry, batcher); },
+                  [&](GeoFeatures& features) { forEachPoint(features, batcher); });
 }
 
 template <class Mapping>
@@ -209,7 +207,7 @@ GeoJSON mapGeoJSON(const GeoJSON& geoJSON, const Mapping& mapping) {
 GeoJSON reprojectGeoJSONToWorld(const GeoJSON& geoJSON, const CRSWorldCoordinateHelper& helper) {
     GeoJSON world = mapGeoJSON(geoJSON, OntoLatitudeRange(helper.latitudeRange()));
     bool allFinite = true;
-    convertPoints([&](auto&& visit) { forEachPoint(world, visit); },
+    convertPoints([&](PointBatcher& batcher) { forEachPoint(world, batcher); },
                   [&](std::span<const std::array<double, 2>> lngLats, std::span<std::array<double, 2>> positions) {
                       helper.worldFromLngLats(lngLats, positions);
                       allFinite = allFinite &&
@@ -224,7 +222,7 @@ GeoJSON reprojectGeoJSONToWorld(const GeoJSON& geoJSON, const CRSWorldCoordinate
 }
 
 GeoFeatures reprojectFeaturesFromWorld(GeoFeatures features, const WorldCoordinateHelper& helper) {
-    convertPoints([&](auto&& visit) { forEachPoint(features, visit); },
+    convertPoints([&](PointBatcher& batcher) { forEachPoint(features, batcher); },
                   [&](std::span<const std::array<double, 2>> world, std::span<std::array<double, 2>> lngLats) {
                       helper.lngLatsFromWorld(world, lngLats);
                   });
