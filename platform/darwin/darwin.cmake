@@ -168,6 +168,7 @@ endfunction()
 if(NOT MLN_WITH_WEBGPU)
     set(_custom_layer_sources
         "${CMAKE_CURRENT_LIST_DIR}/app/CustomStyleLayerExample.m"
+        "${CMAKE_CURRENT_LIST_DIR}/app/MBXArcticProjection.m"
         "${CMAKE_CURRENT_LIST_DIR}/app/PluginLayerExample.mm"
     )
     if(MLN_WITH_METAL)

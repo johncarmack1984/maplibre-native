@@ -1,5 +1,6 @@
 #import "AppDelegate.h"
 
+#import "MBXArcticProjection.h"
 #import "MapDocument.h"
 
 NSString * const MLNApiKeyDefaultsKey = @"MLNApiKey";
@@ -101,6 +102,13 @@ NSString * const MLNLastMapDebugMaskDefaultsKey = @"MLNLastMapDebugMask";
 }
 
 - (void)applicationWillFinishLaunching:(NSNotification *)notification {
+    // A map in a registered projection, NASA GIBS imagery of the Arctic in EPSG:3413, is in the
+    // View menu. Register it before any document restores a style that names it.
+    NSError *error;
+    if (![MLNStyle addProjection:MBXArcticProjection() error:&error]) {
+        NSLog(@"%@", error.localizedDescription);
+    }
+
     [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
                                                        andSelector:@selector(handleGetURLEvent:withReplyEvent:)
                                                      forEventClass:kInternetEventClass

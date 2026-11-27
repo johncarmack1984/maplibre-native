@@ -3125,7 +3125,8 @@ static void *windowScreenContext = &windowScreenContext;
   mln::LatLng center = camera.center ? *camera.center : mln::LatLng();
 
   CLLocationDirection heading = mln::util::wrap(bearing, 0., 360.);
-  CLLocationDistance altitude = [self altitudeForZoomLevel:zoom pitch:pitch latitude:0];
+  CLLocationDistance altitude =
+      MLNAltitudeForZoomLevelInMap(_mbglMap.get(), zoom, pitch, 0, self.frame.size);
   self.camera =
       [MLNMapCamera cameraLookingAtCenterCoordinate:MLNLocationCoordinate2DFromLatLng(center)
                                            altitude:altitude
@@ -4433,9 +4434,8 @@ static void *windowScreenContext = &windowScreenContext;
     CLLocationDegrees peakLatitude =
         (self.centerCoordinate.latitude + camera.centerCoordinate.latitude) / 2;
     CLLocationDegrees peakPitch = (self.camera.pitch + camera.pitch) / 2;
-    animationOptions.minZoom = [self zoomLevelForAltitude:peakAltitude
-                                                    pitch:peakPitch
-                                                 latitude:peakLatitude];
+    animationOptions.minZoom = MLNZoomLevelForAltitudeInMap(_mbglMap.get(), peakAltitude, peakPitch,
+                                                            peakLatitude, self.frame.size);
   }
 
   dispatch_block_t pendingCompletion;
@@ -4565,9 +4565,8 @@ static void *windowScreenContext = &windowScreenContext;
   CLLocationDirection direction =
       cameraOptions.bearing ? mln::util::wrap(*cameraOptions.bearing, 0., 360.) : self.direction;
   CGFloat pitch = cameraOptions.pitch ? *cameraOptions.pitch : *mapCamera.pitch;
-  CLLocationDistance altitude = [self altitudeForZoomLevel:zoomLevel
-                                                     pitch:pitch
-                                                  latitude:centerCoordinate.latitude];
+  CLLocationDistance altitude = MLNAltitudeForZoomLevelInMap(
+      _mbglMap.get(), zoomLevel, pitch, centerCoordinate.latitude, self.frame.size);
 
   auto camera = [MLNMapCamera cameraLookingAtCenterCoordinate:centerCoordinate
                                                      altitude:altitude
@@ -4590,9 +4589,8 @@ static void *windowScreenContext = &windowScreenContext;
     options.center = MLNLatLngFromLocationCoordinate2D(camera.centerCoordinate);
   }
   options.padding = MLNEdgeInsetsFromNSEdgeInsets(insets);
-  options.zoom = [self zoomLevelForAltitude:camera.altitude
-                                      pitch:camera.pitch
-                                   latitude:camera.centerCoordinate.latitude];
+  options.zoom = MLNZoomLevelForAltitudeInMap(_mbglMap.get(), camera.altitude, camera.pitch,
+                                              camera.centerCoordinate.latitude, self.frame.size);
   if (camera.heading >= 0) {
     options.bearing = camera.heading;
   }
@@ -4722,38 +4720,7 @@ static void *windowScreenContext = &windowScreenContext;
 
 - (CLLocationDistance)metersPerPointAtCoordinate:(CLLocationCoordinate2D)coordinate
                                        zoomLevel:(double)zoomLevel {
-  if (self.isInRegisteredProjection && CLLocationCoordinate2DIsValid(coordinate)) {
-    return self.mbglMap.getMetersPerPixelAt(MLNLatLngFromLocationCoordinate2D(coordinate)) *
-           std::pow(2.0, self.zoomLevel - zoomLevel);
-  }
-  return mln::Projection::getMetersPerPixelAtLatitude(coordinate.latitude, zoomLevel);
-}
-
-- (BOOL)isInRegisteredProjection {
-  return _mbglMap && _mbglMap->getRegisteredProjectionMetersPerPixel(0).has_value();
-}
-
-- (CLLocationDistance)altitudeForZoomLevel:(double)zoomLevel
-                                     pitch:(CGFloat)pitch
-                                  latitude:(CLLocationDegrees)latitude {
-  if (_mbglMap) {
-    if (auto metersPerPoint = _mbglMap->getRegisteredProjectionMetersPerPixel(zoomLevel)) {
-      return MLNAltitudeForMetersPerPoint(*metersPerPoint, pitch, self.frame.size);
-    }
-  }
-  return MLNAltitudeForZoomLevel(zoomLevel, pitch, latitude, self.frame.size);
-}
-
-- (double)zoomLevelForAltitude:(CLLocationDistance)altitude
-                         pitch:(CGFloat)pitch
-                      latitude:(CLLocationDegrees)latitude {
-  if (_mbglMap) {
-    if (auto metersPerPointAtZoom0 = _mbglMap->getRegisteredProjectionMetersPerPixel(0)) {
-      return std::log2(*metersPerPointAtZoom0 /
-                       MLNMetersPerPointForAltitude(altitude, pitch, self.frame.size));
-    }
-  }
-  return MLNZoomLevelForAltitude(altitude, pitch, latitude, self.frame.size);
+  return MLNMetersPerPointAtCoordinate(_mbglMap.get(), coordinate, zoomLevel);
 }
 
 - (MLNMapProjection *)mapProjection {
@@ -6549,9 +6516,9 @@ static void *windowScreenContext = &windowScreenContext;
   camera.centerCoordinate = self.userLocation.location.coordinate;
   camera.heading = self.directionByFollowingWithCourse;
   if (self.zoomLevel < MLNMinimumZoomLevelForUserTracking) {
-    camera.altitude = [self altitudeForZoomLevel:MLNDefaultZoomLevelForUserTracking
-                                           pitch:camera.pitch
-                                        latitude:camera.centerCoordinate.latitude];
+    camera.altitude = MLNAltitudeForZoomLevelInMap(
+        _mbglMap.get(), MLNDefaultZoomLevelForUserTracking, camera.pitch,
+        camera.centerCoordinate.latitude, self.frame.size);
   }
 
   __weak MLNMapView *weakSelf = self;
@@ -6646,7 +6613,7 @@ static void *windowScreenContext = &windowScreenContext;
       mln::LatLng userLatLng = MLNLatLngFromLocationCoordinate2D(self.userLocation.coordinate);
       mln::LatLng targetLatLng = MLNLatLngFromLocationCoordinate2D(self.targetCoordinate);
       double angle;
-      if (self.isInRegisteredProjection) {
+      if (MLNMapIsInRegisteredProjection(_mbglMap.get())) {
         mln::MapProjection plane(self.mbglMap);
         plane.setCamera(mln::CameraOptions().withBearing(0.0).withPitch(0.0));
         mln::ScreenCoordinate user = plane.pixelForLatLng(userLatLng);
