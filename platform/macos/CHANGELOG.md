@@ -37,6 +37,7 @@ MapLibre welcomes participation and contributions from everyone. Please read [`C
 
   </details>
 - Export `MLNPluginStyleLayer` and `MLNBackendResource` from the dynamic framework ([#4731](https://github.com/maplibre/maplibre-native/pull/4731)).
+- Add `MLNCoordinateReferenceSystem` and `+[MLNStyle addProjection:error:]`, experimental, so a map can draw tiles cut in another coordinate reference system, as MapLibre GL JS's `addProjection` does. A style selects one by name in its `projection.type`. In such a projection, `metersPerPointAtLatitude:` follows its scale and `MLNMapCamera.altitude` counts its units as meters ([#95](https://github.com/maplibre/maplibre-native/issues/95)).
 
 ## 6.27.0
 

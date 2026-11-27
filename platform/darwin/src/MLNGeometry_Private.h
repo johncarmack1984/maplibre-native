@@ -34,6 +34,11 @@ NS_INLINE MLNRadianCoordinate2D MLNRadianCoordinate2DMake(MLNLocationRadians lat
 /// the given point.
 CGRect MLNExtendRect(CGRect rect, CGPoint point);
 
+CLLocationDistance MLNAltitudeForMetersPerPoint(CLLocationDistance metersPerPoint, CGFloat pitch,
+                                                CGSize size);
+CLLocationDistance MLNMetersPerPointForAltitude(CLLocationDistance altitude, CGFloat pitch,
+                                                CGSize size);
+
 #if TARGET_OS_IPHONE
 NS_INLINE NSString *MLNStringFromSize(CGSize size) { return NSStringFromCGSize(size); }
 #else

@@ -45,23 +45,32 @@ mln::LatLng MLNLatLngFromLocationCoordinate2D(CLLocationCoordinate2D coordinate)
   }
 }
 
-CLLocationDistance MLNAltitudeForZoomLevel(double zoomLevel, CGFloat pitch,
-                                           CLLocationDegrees latitude, CGSize size) {
-  CLLocationDistance metersPerPixel =
-      mln::Projection::getMetersPerPixelAtLatitude(latitude, zoomLevel);
-  CLLocationDistance metersTall = metersPerPixel * size.height;
+CLLocationDistance MLNAltitudeForMetersPerPoint(CLLocationDistance metersPerPoint, CGFloat pitch,
+                                                CGSize size) {
+  CLLocationDistance metersTall = metersPerPoint * size.height;
   CLLocationDistance altitude =
       metersTall / 2 / std::tan(MLNRadiansFromDegrees(MLNAngularFieldOfView) / 2.);
   return altitude * std::sin(M_PI_2 - MLNRadiansFromDegrees(pitch)) / std::sin(M_PI_2);
 }
 
-double MLNZoomLevelForAltitude(CLLocationDistance altitude, CGFloat pitch,
-                               CLLocationDegrees latitude, CGSize size) {
+CLLocationDistance MLNMetersPerPointForAltitude(CLLocationDistance altitude, CGFloat pitch,
+                                                CGSize size) {
   CLLocationDistance eyeAltitude =
       altitude / std::sin(M_PI_2 - MLNRadiansFromDegrees(pitch)) * std::sin(M_PI_2);
   CLLocationDistance metersTall =
       eyeAltitude * 2 * std::tan(MLNRadiansFromDegrees(MLNAngularFieldOfView) / 2.);
-  CLLocationDistance metersPerPixel = metersTall / size.height;
+  return metersTall / size.height;
+}
+
+CLLocationDistance MLNAltitudeForZoomLevel(double zoomLevel, CGFloat pitch,
+                                           CLLocationDegrees latitude, CGSize size) {
+  return MLNAltitudeForMetersPerPoint(
+      mln::Projection::getMetersPerPixelAtLatitude(latitude, zoomLevel), pitch, size);
+}
+
+double MLNZoomLevelForAltitude(CLLocationDistance altitude, CGFloat pitch,
+                               CLLocationDegrees latitude, CGSize size) {
+  CLLocationDistance metersPerPixel = MLNMetersPerPointForAltitude(altitude, pitch, size);
   CGFloat mapPixelWidthAtZoom = std::cos(MLNRadiansFromDegrees(latitude)) * mln::util::M2PI *
                                 mln::util::EARTH_RADIUS_M / metersPerPixel;
   return ::log2(mapPixelWidthAtZoom / mln::util::tileSize_D);
