@@ -327,6 +327,12 @@ NSArray<id <MLNAnnotation>> *MBXFlattenedShapes(NSArray<id <MLNAnnotation>> *sha
     [self.window.toolbar validateVisibleItems];
 }
 
+- (IBAction)showArcticStyle:(id)sender {
+    [self.undoManager removeAllActionsWithTarget:self];
+    self.mapView.styleURL = [[NSBundle mainBundle] URLForResource:@"arctic" withExtension:@"json"];
+    [self.window.toolbar validateVisibleItems];
+}
+
 - (IBAction)chooseCustomStyle:(id)sender {
     NSAlert *alert = [[NSAlert alloc] init];
     alert.messageText = @"Apply custom style";
@@ -1138,6 +1144,11 @@ NSArray<id <MLNAnnotation>> *MBXFlattenedShapes(NSArray<id <MLNAnnotation>> *sha
         }
         return NO;
     }
+    if (menuItem.action == @selector(showArcticStyle:)) {
+        NSURL *arcticURL = [[NSBundle mainBundle] URLForResource:@"arctic" withExtension:@"json"];
+        menuItem.state = arcticURL && [self.mapView.styleURL isEqual:arcticURL];
+        return arcticURL != nil;
+    }
     if (menuItem.action == @selector(chooseCustomStyle:)) {
         menuItem.state = self.indexOfStyleInToolbarItem == NSNotFound;
         return YES;
@@ -1383,6 +1394,12 @@ NSArray<id <MLNAnnotation>> *MBXFlattenedShapes(NSArray<id <MLNAnnotation>> *sha
 
 - (void)mapView:(MLNMapView *)mapView didFinishLoadingStyle:(MLNStyle *)style {
     [self updateLabels];
+
+    // A Web Mercator camera can lie far outside the polar grid, so start over the pole.
+    if ([style.name isEqualToString:@"Arctic sea ice (EPSG:3413)"]) {
+        mapView.centerCoordinate = CLLocationCoordinate2DMake(90, -45);
+        mapView.zoomLevel = 1;
+    }
 }
 
 - (BOOL)mapView:(MLNMapView *)mapView annotationCanShowCallout:(id <MLNAnnotation>)annotation {
