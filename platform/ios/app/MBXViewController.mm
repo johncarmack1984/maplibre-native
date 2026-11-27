@@ -4,6 +4,7 @@
 
 #import "MBXAnnotationView.h"
 #import "MBXAppDelegate.h"
+#import "MBXArcticProjection.h"
 #import "MBXCustomCalloutView.h"
 #import "MBXEmbeddedMapViewController.h"
 #import "MBXOfflinePacksTableViewController.h"
@@ -2540,6 +2541,20 @@ CLLocationCoordinate2D randomWorldCoordinate(void) {
     [self.styleURLs addObject:url];
   }
 
+  /// A map in a registered projection: NASA GIBS imagery of the Arctic in EPSG:3413
+  NSURL *arcticURL = [[NSBundle mainBundle] URLForResource:@"arctic" withExtension:@"json"];
+  if (arcticURL) {
+    static dispatch_once_t registerArcticProjection;
+    dispatch_once(&registerArcticProjection, ^{
+      NSError *error;
+      if (![MLNStyle addProjection:MBXArcticProjection() error:&error]) {
+        NSLog(@"%@", error.localizedDescription);
+      }
+    });
+    [self.styleNames addObject:@"Arctic sea ice (EPSG:3413)"];
+    [self.styleURLs addObject:arcticURL];
+  }
+
   /// Add MapLibre Styles if an `apiKey` exists
   NSString *apiKey = [MLNSettings apiKey];
   if (apiKey.length) {
@@ -2912,6 +2927,11 @@ CLLocationCoordinate2D randomWorldCoordinate(void) {
   // that a device with an English-language locale is already effectively
   // using locale-based country labels.
   _localizingLabels = [[self bestLanguageForUser] isEqualToString:@"en"];
+
+  // A Web Mercator camera can lie far outside the polar grid, so start from the style's own view.
+  if ([style.name isEqualToString:@"Arctic sea ice (EPSG:3413)"]) {
+    [mapView resetPosition];
+  }
 }
 
 - (BOOL)mapView:(MLNMapView *)mapView
