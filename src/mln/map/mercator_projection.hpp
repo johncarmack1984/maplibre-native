@@ -11,6 +11,7 @@ public:
     const WorldCoordinateHelper& worldCoordinateHelper() const override { return *helper; }
 
     Point<double> project(const LatLng&, double scale) const override;
+    std::vector<Point<double>> project(const std::vector<LatLng>&, double scale) const override;
     LatLng unproject(const Point<double>&, double scale, LatLng::WrapMode) const override;
 
 private:
