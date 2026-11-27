@@ -130,7 +130,7 @@ TEST(TransformInTheIdentityProjection, CoversTheTileThatFillsTheView) {
 }
 
 TEST(TransformInARegisteredProjection, FliesPastTheAntimeridianWithoutWrapping) {
-    addProjection(test::wideIdentity("test:wide"));
+    const test::ScopedProjection registration(test::wideIdentity("test:wide"));
     Transform transform;
     transform.resize({512, 512});
     useProjection(transform, "test:wide");
@@ -142,7 +142,6 @@ TEST(TransformInARegisteredProjection, FliesPastTheAntimeridianWithoutWrapping) 
     EXPECT_GT(transform.getLatLng().longitude(), 170);
     transform.updateTransitions(transform.getTransitionStart() + transform.getTransitionDuration());
     EXPECT_NEAR(200, transform.getLatLng().longitude(), 1e-9);
-    removeProjection("test:wide");
 }
 
 TEST(TransformInARegisteredProjection, FallsBackToMercatorForAnUnknownName) {
@@ -156,7 +155,7 @@ TEST(TransformInARegisteredProjection, FallsBackToMercatorForAnUnknownName) {
 }
 
 TEST(TransformInARegisteredProjection, KeepsACenterInsideTheMaxBoundsOfAPolarCap) {
-    addProjection(test::northPolarStereographic("test:polar-cap"));
+    const test::ScopedProjection registration(test::northPolarStereographic("test:polar-cap"));
     Transform transform;
     transform.resize({512, 512});
     useProjection(transform, "test:polar-cap");
@@ -166,11 +165,10 @@ TEST(TransformInARegisteredProjection, KeepsACenterInsideTheMaxBoundsOfAPolarCap
     // The corners of the cap are the pole and a point on its edge; the cap's world box keeps the center where it is.
     EXPECT_NEAR(70, transform.getLatLng().latitude(), 1e-6);
     EXPECT_NEAR(45, transform.getLatLng().longitude(), 1e-6);
-    removeProjection("test:polar-cap");
 }
 
 TEST(TransformInARegisteredProjection, CoversTheSameTilesWhenTheCenterCrossesTheAntimeridian) {
-    addProjection(test::polarStereographic("test:polar-antimeridian"));
+    const test::ScopedProjection registration(test::polarStereographic("test:polar-antimeridian"));
     Transform transform;
     transform.resize({512, 512});
     useProjection(transform, "test:polar-antimeridian");
@@ -186,11 +184,10 @@ TEST(TransformInARegisteredProjection, CoversTheSameTilesWhenTheCenterCrossesThe
     const auto east = coverAt({72, 179.9});
     EXPECT_EQ(4u, east.size());
     EXPECT_EQ(east, coverAt({72, -179.9}));
-    removeProjection("test:polar-antimeridian");
 }
 
 TEST(TransformInARegisteredProjection, KeepsTheViewInsideThePolarCapInScreenMode) {
-    addProjection(test::northPolarStereographic("test:polar-screen"));
+    const test::ScopedProjection registration(test::northPolarStereographic("test:polar-screen"));
     Transform transform;
     transform.resize({512, 512});
     useProjection(transform, "test:polar-screen");
@@ -205,7 +202,6 @@ TEST(TransformInARegisteredProjection, KeepsTheViewInsideThePolarCapInScreenMode
     const auto& helper = transform.getState().getProjection().worldCoordinateHelper();
     const auto box = latLngBoxToWorldBox(helper, LatLngBounds::hull({60, -180}, {90, 180}));
     EXPECT_NEAR(box[3], helper.worldFromLatLng(transform.screenCoordinateToLatLng({256, 512})).y, 1e-6);
-    removeProjection("test:polar-screen");
 }
 
 TEST(TransformInARegisteredProjection, StaysFlatInAFlippedViewport) {

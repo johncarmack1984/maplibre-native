@@ -59,12 +59,12 @@ public:
     virtual Features getLeaves(std::uint32_t, std::uint32_t limit, std::uint32_t offset) = 0;
     virtual std::uint8_t getClusterExpansionZoom(std::uint32_t) = 0;
 
-    /// The registered projection the data was tiled in, or empty.
-    const std::string& getProjection() const { return projection; }
+    /// The name of the registered projection the data was tiled in, or empty.
+    const std::string& getProjectionName() const { return projectionName; }
 
 private:
     friend class GeoJSONSource;
-    std::string projection;
+    std::string projectionName;
 };
 
 // NOTE: Any derived class must invalidate `weakFactory` in the destructor
@@ -76,6 +76,8 @@ public:
     void setURL(const std::string& url);
     void setGeoJSON(const GeoJSON&);
     void setGeoJSON(GeoJSON&&);
+    /// Sets data that is already tiled. It draws only in the projection it was tiled in, so data from
+    /// `GeoJSONData::create`, which tiles in Mercator, draws nothing in a registered projection and logs a warning.
     void setGeoJSONData(std::shared_ptr<GeoJSONData>);
 
     std::optional<std::string> getURL() const;

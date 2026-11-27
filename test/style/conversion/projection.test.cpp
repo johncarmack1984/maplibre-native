@@ -64,7 +64,7 @@ TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
         EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->getType().asExpression().evaluate(10.f));
     }
 
-    addProjection(test::polarStereographic("test:in-a-transition"));
+    const test::ScopedProjection registration(test::polarStereographic("test:in-a-transition"));
     {
         auto projection = parseProjection(R"({"type":["mercator","test:in-a-transition",0.25]})");
         ASSERT_TRUE(projection) << error.message;
@@ -72,7 +72,6 @@ TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
         // GL JS's globe takes a transition with a name it does not know as the whole globe.
         EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->getType().asConstant());
     }
-    removeProjection("test:in-a-transition");
 
     // GL JS warns only for a name that is registered.
     {

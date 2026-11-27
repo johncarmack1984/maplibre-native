@@ -104,6 +104,8 @@ public:
                                  std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection = nullptr);
     /// The projection the style gives at a zoom, which constrains an animation's target as it constrains a jump.
     void setProjectionForZoom(std::function<ProjectionDefinition(double zoom)>);
+
+    // North Orientation
     void setNorthOrientation(NorthOrientation);
     NorthOrientation getNorthOrientation() const;
 

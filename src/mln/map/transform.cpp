@@ -734,6 +734,8 @@ void Transform::setProjectionDefinition(const ProjectionDefinition& definition,
     state.setProjectionDefinition(definition, std::move(registeredProjection));
 }
 
+// MARK: - North Orientation
+
 void Transform::setNorthOrientation(NorthOrientation orientation) {
     state.setNorthOrientation(orientation);
     double scale{state.getScale()};
