@@ -239,7 +239,10 @@ TEST(Map, MetersPerPixelInMercatorIsItsScaleAtTheLatitude) {
     MapTest<> test;
     test.map.jumpTo(CameraOptions().withCenter(LatLng{40, -74}).withZoom(10.5));
 
-    EXPECT_DOUBLE_EQ(mln::Projection::getMetersPerPixelAtLatitude(55, 10.5), test.map.getMetersPerPixelAt({55, 20}));
+    EXPECT_EQ(mln::Projection::getMetersPerPixelAtLatitude(55, 10.5), test.map.getMetersPerPixelAt({55, 20}));
+    const MapProjection projection(test.map);
+    EXPECT_EQ(test.map.getMetersPerPixelAt({55, 20}), projection.getMetersPerPixelAt({55, 20}));
+    EXPECT_FALSE(projection.getRegisteredProjectionMetersPerPixel(3));
 }
 
 TEST(Map, MetersPerPixelInARegisteredProjection) {
@@ -248,12 +251,39 @@ TEST(Map, MetersPerPixelInARegisteredProjection) {
         MapTest<> test;
         test.map.getStyle().loadJSON(
             R"({"version": 8, "projection": {"type": "test:polar-scale"}, "sources": {}, "layers": []})");
-        test.map.jumpTo(CameraOptions().withCenter(LatLng{70, -45}).withZoom(4));
+        struct Camera {
+            LatLng center;
+            double zoom;
+            LatLng location;
+            double metersPerPixel;
+        };
+        // GL JS's numbers for the same projection, from its own `Map.project`, `Map.unproject` and
+        // `LngLat.distanceTo` as its geolocate control calls them: the distance from the location to the point 100
+        // pixels to its right, over 100. At bearing 0 and pitch 0 those are 100 pixels along the projection's x axis.
+        const std::array cameras = {
+            Camera{{70, -45}, 4, {70, -45}, 1022.8325840486776},
+            Camera{{80, 30}, 6, {81, 40}, 261.9986619836209},
+            Camera{{60, -100}, 8, {60.1, -100.2}, 61.535774394909105},
+        };
+        constexpr double relativeTolerance = 1e-9;
+        for (const auto& camera : cameras) {
+            test.map.jumpTo(
+                CameraOptions().withCenter(camera.center).withZoom(camera.zoom).withBearing(0).withPitch(0));
+            const double metersPerPixel = test.map.getMetersPerPixelAt(camera.location);
+            EXPECT_NEAR(camera.metersPerPixel, metersPerPixel, camera.metersPerPixel * relativeTolerance);
 
-        // The projection is true to scale at 70 N, so a pixel there spans the tile matrix set's 8388608 m at zoom 0
-        // over the world's width in pixels; Mercator's scale at 70 N would be about 1.6 times that.
-        const double expected = 8388608 / mln::Projection::worldSize(std::pow(2.0, 4));
-        EXPECT_NEAR(expected, test.map.getMetersPerPixelAt({70, -45}), expected * 1e-6);
+            const MapProjection projection(test.map);
+            EXPECT_EQ(metersPerPixel, projection.getMetersPerPixelAt(camera.location));
+            EXPECT_EQ(test.map.getRegisteredProjectionMetersPerPixel(camera.zoom),
+                      projection.getRegisteredProjectionMetersPerPixel(camera.zoom));
+        }
+
+        // The measure runs along the projection's x axis whichever way the camera looks.
+        const Camera& first = cameras.front();
+        test.map.jumpTo(CameraOptions().withCenter(first.center).withZoom(first.zoom).withBearing(30).withPitch(45));
+        EXPECT_NEAR(first.metersPerPixel,
+                    test.map.getMetersPerPixelAt(first.location),
+                    first.metersPerPixel * relativeTolerance);
     }
     removeProjection("test:polar-scale");
 }
