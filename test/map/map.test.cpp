@@ -51,9 +51,13 @@
 #include <mln/util/run_loop.hpp>
 #include <mln/util/timer.hpp>
 
+#include <array>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <set>
+#include <span>
+#include <vector>
 
 using namespace mln;
 using namespace mln::style;
@@ -208,16 +212,27 @@ TEST(Map, LatLngBoundsToCamera) {
 }
 
 TEST(Map, LatLngBoundsToCameraInAPolarProjection) {
-    addProjection(test::northPolarStereographic("test:polar-fit"));
+    CRS crs = test::northPolarStereographic("test:polar-fit");
+    auto forwardCalls = std::make_shared<std::vector<std::size_t>>();
+    crs.forward = [forward = crs.forward, forwardCalls](std::span<const std::array<double, 2>> lngLats,
+                                                        std::span<std::array<double, 2>> positions) {
+        forwardCalls->push_back(lngLats.size());
+        forward(lngLats, positions);
+    };
+    addProjection(std::move(crs));
     {
         MapTest<> test;
         test.map.getStyle().loadJSON(
             R"({"version": 8, "projection": {"type": "test:polar-fit"}, "sources": {}, "layers": []})");
+        forwardCalls->clear();
 
         // Its corners are the pole and one point on its edge, but the cap north of 60N is a disc around the pole.
         CameraOptions camera = test.map.cameraForLatLngBounds(LatLngBounds::hull({60, -180}, {90, 180}), {});
         ASSERT_TRUE(camera.center);
         EXPECT_NEAR(90, camera.center->latitude(), 1e-6);
+        // The box is fitted by its 17 by 17 samples, which go through the converter in one call.
+        EXPECT_THAT(*forwardCalls, testing::Contains(289u));
+        EXPECT_LT(forwardCalls->size(), 289u);
     }
     removeProjection("test:polar-fit");
 }
@@ -285,6 +300,29 @@ TEST(Map, GlobeDrawsAProjectionExpressionThatNamesARegisteredProjection) {
     test.map.jumpTo(CameraOptions().withZoom(10));
     EXPECT_FALSE(test.map.getTransformState().isGlobeRendering());
     EXPECT_NEAR(45, test.map.getCameraOptions().center->latitude(), 1e-6);
+}
+
+TEST(Map, GeoJSONSetAfterItsProjectionIsRemovedIsTiledInIt) {
+    addProjection(test::polarStereographic("test:polar-removed"));
+    MapTest<> test;
+    test.map.getStyle().loadJSON(R"({"version": 8, "projection": {"type": "test:polar-removed"},
+        "sources": {"points": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}},
+        "layers": [{"id": "points", "type": "circle", "source": "points"}]})");
+    const LatLng place{75, 0};
+    test.map.jumpTo(CameraOptions().withCenter(place).withZoom(3));
+    test.frontend.render(test.map);
+
+    // The map keeps drawing in the projection, as GL JS's maps do, so data set now is tiled in it too.
+    removeProjection("test:polar-removed");
+    test.map.getStyle().getSource("points")->as<GeoJSONSource>()->setGeoJSON(
+        mapbox::geojson::parse(R"({"type": "Point", "coordinates": [0, 75]})"));
+    test.frontend.render(test.map);
+
+    const auto features = test.frontend.getRenderer()->queryRenderedFeatures(test.map.pixelForLatLng(place));
+    ASSERT_EQ(1u, features.size());
+    const auto& point = features[0].geometry.get<Point<double>>();
+    EXPECT_NEAR(0, point.x, 1e-3);
+    EXPECT_NEAR(75, point.y, 1e-3);
 }
 
 TEST(Map, LatLngBoundsToCameraWithExcessivePadding) {

@@ -44,6 +44,7 @@
 #include <mln/annotation/annotation_manager.hpp>
 #include <mln/annotation/annotation_source.hpp>
 #include <mln/map/transform.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
 #include <mln/renderer/image_manager.hpp>
 #include <mln/renderer/tile_render_data.hpp>
 #include <mln/text/glyph_manager.hpp>
@@ -802,7 +803,7 @@ TEST(Source, GeoJSONDataTilesTheDataWhereTheIdentityProjectionPutsIt) {
     const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"),
                                           Scheduler::GetSequenced(),
                                           GeoJSONOptions::defaultOptions(),
-                                          "identity");
+                                          getRegisteredProjection("identity"));
 
     EXPECT_EQ("identity", data->getProjection());
     const auto features = rootTile(*data);
@@ -817,7 +818,7 @@ TEST(Source, GeoJSONDataLeavesOutPointsOutsideTheWorldSquareOfARegisteredProject
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [150, 30]}}]})"),
                                           Scheduler::GetSequenced(),
                                           GeoJSONOptions::defaultOptions(),
-                                          "identity");
+                                          getRegisteredProjection("identity"));
 
     const auto features = rootTile(*data);
     ASSERT_EQ(1u, features.size());
@@ -833,7 +834,7 @@ TEST(Source, GeoJSONDataReturnsClusterLeavesInLatLngInARegisteredProjection) {
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [45, 45]}}]})"),
                                           Scheduler::GetSequenced(),
                                           std::move(options),
-                                          "identity");
+                                          getRegisteredProjection("identity"));
 
     const auto features = rootTile(*data);
     ASSERT_EQ(1u, features.size());

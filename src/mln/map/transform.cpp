@@ -726,8 +726,9 @@ void Transform::setProjectionForZoom(std::function<ProjectionDefinition(double)>
     projectionForZoom = std::move(projectionForZoom_);
 }
 
-void Transform::setProjectionDefinition(const ProjectionDefinition& definition, const std::string& registeredName) {
-    state.setProjectionDefinition(definition, registeredName);
+void Transform::setProjectionDefinition(const ProjectionDefinition& definition,
+                                        std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection) {
+    state.setProjectionDefinition(definition, std::move(registeredProjection));
 }
 
 void Transform::setNorthOrientation(NorthOrientation orientation) {
@@ -936,6 +937,14 @@ ScreenCoordinate Transform::latLngToScreenCoordinate(const LatLng& latLng) const
     ScreenCoordinate point = state.latLngToScreenCoordinate(latLng);
     point.y = state.getSize().height - point.y;
     return point;
+}
+
+std::vector<ScreenCoordinate> Transform::latLngsToScreenCoordinates(const std::vector<LatLng>& latLngs) const {
+    std::vector<ScreenCoordinate> points = state.latLngsToScreenCoordinates(latLngs);
+    for (ScreenCoordinate& point : points) {
+        point.y = state.getSize().height - point.y;
+    }
+    return points;
 }
 
 LatLng Transform::screenCoordinateToLatLng(const ScreenCoordinate& point, LatLng::WrapMode wrapMode) const {

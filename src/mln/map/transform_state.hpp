@@ -17,6 +17,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace mln {
 
@@ -134,9 +135,13 @@ public:
     void setProperties(const TransformStateProperties& properties);
 
     // Projection
-    /// The style's projection: the one registered under `registeredName`, see `addProjection`, which draws flat, or
-    /// for an empty name the definition.
-    void setProjectionDefinition(const ProjectionDefinition&, const std::string& registeredName = {});
+    /// The style's projection: a registered one, see `addProjection`, which draws flat, or for null the definition.
+    void setProjectionDefinition(const ProjectionDefinition&,
+                                 std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection = nullptr);
+    /// The registered projection the map is in, or null.
+    const std::shared_ptr<const CRSWorldCoordinateHelper>& getRegisteredProjection() const {
+        return registeredProjection;
+    }
     /// The transition the map draws for a projection's: Mercator's in a build without the globe, and in a flipped
     /// viewport, which the globe doesn't draw into yet.
     double drawnProjectionTransition(double transition) const;
@@ -269,6 +274,8 @@ public:
     ScreenCoordinate latLngToScreenCoordinate(const LatLng&, vec4&) const;
     /// Whether the globe hides a location from the camera; a Mercator map hides nothing.
     bool isLocationOccluded(const LatLng&) const;
+    /// `latLngToScreenCoordinate` for each lat/lng, converted in one batch in a registered projection.
+    std::vector<ScreenCoordinate> latLngsToScreenCoordinates(const std::vector<LatLng>&) const;
     LatLng screenCoordinateToLatLng(const ScreenCoordinate&, LatLng::WrapMode = LatLng::Unwrapped) const;
     // Implements mapbox-gl-js pointCoordinate() : MercatorCoordinate.
     TileCoordinate screenCoordinateToTileCoordinate(const ScreenCoordinate&, uint8_t atZoom) const;
@@ -340,7 +347,7 @@ private:
     const mat4& getInvertedMatrix() const;
 
 private:
-    void setRegisteredProjection(const std::string& name);
+    void setRegisteredProjection(std::shared_ptr<const CRSWorldCoordinateHelper>);
     void updateCenterWorldBox();
     /// The center in the world square.
     Point<double> centerWorldPoint() const;
@@ -348,11 +355,12 @@ private:
     double metersPerPixelAtCenter() const;
     void updateProjectionTransition();
 
+    ScreenCoordinate projectedToScreenCoordinate(const Point<double>& projected, vec4&) const;
+
     std::shared_ptr<const ProjectionBase> projection;
     double requestedProjectionTransition = 0;
     double projectionTransition = 0;
-    /// The registered projection the map is in, or empty.
-    std::string registeredProjection;
+    std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection;
     /// Where a projection whose world does not wrap keeps the center, in world units: the max bounds as a rectangle
     /// in its world square, or the whole square.
     std::array<double, 4> centerWorldBox{0, 0, 1, 1};

@@ -19,7 +19,6 @@ class AnnotationTile;
 class AnnotationTileData;
 class SymbolAnnotationImpl;
 class ShapeAnnotationImpl;
-class WorldCoordinateHelper;
 class CRSWorldCoordinateHelper;
 
 namespace style {
@@ -43,8 +42,9 @@ public:
     void setStyle(style::Style&);
     void onStyleLoaded();
 
-    /// Refreshes the annotation tiles after a change, in the projection of the frame the helper belongs to.
-    void updateData(const WorldCoordinateHelper&);
+    /// Refreshes the annotation tiles after a change, in the frame's registered projection, or as Mercator draws them
+    /// for null.
+    void updateData(const std::shared_ptr<const CRSWorldCoordinateHelper>& registeredProjection);
 
     void addTile(AnnotationTile&);
     void removeTile(AnnotationTile&);

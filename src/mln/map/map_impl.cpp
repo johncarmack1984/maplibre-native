@@ -118,7 +118,7 @@ void Map::Impl::onUpdate() {
 
     transform.updateTransitions(timePoint);
     transform.setProjectionDefinition(projectionAt(transform.getZoom()),
-                                      style->impl->getProjection()->impl->registeredName);
+                                      style->impl->getProjection()->impl->registeredProjection);
 
     UpdateParameters params = {
         .styleLoaded = style->impl->isLoaded(),
@@ -330,7 +330,7 @@ void Map::Impl::jumpTo(const CameraOptions& camera) {
     cameraMutated = true;
     // The style's projection decides how the camera is constrained, so it has to be in place first.
     transform.setProjectionDefinition(projectionAt(camera.zoom.value_or(transform.getZoom())),
-                                      style->impl->getProjection()->impl->registeredName);
+                                      style->impl->getProjection()->impl->registeredProjection);
     transform.jumpTo(camera);
     onUpdate();
 }

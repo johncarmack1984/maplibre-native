@@ -104,19 +104,19 @@ void copyPairs(std::span<const Pair> in, std::span<Pair> out) {
     std::ranges::copy(in, out.begin());
 }
 
-std::shared_ptr<const CRS> identityCRS() {
-    static const auto crs = std::make_shared<const CRS>(
-        CRS{.name = "identity",
-            .forward = copyPairs,
-            .inverse = copyPairs,
-            .tileMatrixSet = {.origin = {-90, 90}, .extentAtZoom0 = 180}});
-    return crs;
+std::shared_ptr<const CRSWorldCoordinateHelper> identityHelper() {
+    return std::make_shared<const CRSWorldCoordinateHelper>(
+        std::make_shared<const CRS>(CRS{.name = "identity",
+                                        .forward = copyPairs,
+                                        .inverse = copyPairs,
+                                        .tileMatrixSet = {.origin = {-90, 90}, .extentAtZoom0 = 180}}));
 }
 
 std::mutex registryMutex;
 
-std::unordered_map<std::string, std::shared_ptr<const CRS>>& registry() {
-    static std::unordered_map<std::string, std::shared_ptr<const CRS>> projections{{"identity", identityCRS()}};
+std::unordered_map<std::string, std::shared_ptr<const CRSWorldCoordinateHelper>>& registry() {
+    static std::unordered_map<std::string, std::shared_ptr<const CRSWorldCoordinateHelper>> projections{
+        {"identity", identityHelper()}};
     return projections;
 }
 
@@ -405,15 +405,10 @@ std::array<double, 4> latLngBoxToWorldBox(const WorldCoordinateHelper& helper, c
     return {rectangle[0] - bulge, rectangle[1] - bulge, rectangle[2] + bulge, rectangle[3] + bulge};
 }
 
-std::shared_ptr<const CRS> getRegisteredProjection(const std::string& name) {
+std::shared_ptr<const CRSWorldCoordinateHelper> getRegisteredProjection(const std::string& name) {
     std::scoped_lock lock(registryMutex);
     const auto it = registry().find(name);
     return it == registry().end() ? nullptr : it->second;
-}
-
-std::shared_ptr<const CRSWorldCoordinateHelper> makeRegisteredWorldCoordinateHelper(const std::string& name) {
-    auto crs = name.empty() ? nullptr : getRegisteredProjection(name);
-    return crs ? std::make_shared<const CRSWorldCoordinateHelper>(std::move(crs)) : nullptr;
 }
 
 void addProjection(CRS crs) {
@@ -434,7 +429,8 @@ void addProjection(CRS crs) {
         throw std::invalid_argument("The projection \"" + crs.name + "\" needs both forward and inverse.");
     }
     auto name = crs.name;
-    registry().emplace(std::move(name), std::make_shared<const CRS>(std::move(crs)));
+    registry().emplace(std::move(name),
+                       std::make_shared<const CRSWorldCoordinateHelper>(std::make_shared<const CRS>(std::move(crs))));
 }
 
 void removeProjection(const std::string& name) {

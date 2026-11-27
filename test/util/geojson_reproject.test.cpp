@@ -69,7 +69,7 @@ Positions ringOf(const GeoJSON& geoJSON) {
 } // namespace
 
 TEST(ReprojectGeoJSONToWorld, MovesAnIdentityPositionToItsWorldCoordinates) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
 
     const auto result = reprojectGeoJSONToWorld(GeoGeometry{Position{45, 45}}, helper);
 
@@ -77,7 +77,7 @@ TEST(ReprojectGeoJSONToWorld, MovesAnIdentityPositionToItsWorldCoordinates) {
 }
 
 TEST(ReprojectGeoJSONToWorld, WalksFeaturesCollectionsAndGeometryCollections) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
     const GeoFeatures features{
         GeoFeature{mapbox::geometry::polygon<double>{{{0, 0}, {45, 0}, {45, 45}, {0, 45}, {0, 0}}},
                    PropertyMap{{"name", std::string("a")}},
@@ -173,7 +173,7 @@ TEST(ReprojectGeoJSONToWorld, KeepsAPolygonThatCoversASmallGridOverAllOfIt) {
 }
 
 TEST(ReprojectFeaturesFromWorld, RoundTripsWithReprojectGeoJSONToWorld) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
     const GeoFeatures features{GeoFeature{mapbox::geometry::geometry_collection<double>{
         Position{-30, -30}, mapbox::geometry::multi_polygon<double>{{{{0, 0}, {45, 0}, {45, 45}, {0, 0}}}}}}};
 

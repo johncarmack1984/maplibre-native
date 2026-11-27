@@ -23,7 +23,7 @@ constexpr double noAnswer = std::numeric_limits<double>::quiet_NaN();
 } // namespace
 
 TEST(CRSWorldCoordinateHelper, Identity) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
     EXPECT_EQ("identity", helper.name());
     EXPECT_FALSE(helper.wraps());
     EXPECT_EQ(Point<double>(0.75, 0.25), helper.worldFromLatLng({45, 45}));
@@ -33,7 +33,7 @@ TEST(CRSWorldCoordinateHelper, Identity) {
 }
 
 TEST(CRSWorldCoordinateHelper, LatLngPastTheEdgeOfTheSquareIsUnclamped) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
     // The identity has an answer everywhere: a position east of the square keeps its own longitude.
     EXPECT_EQ(LatLng(0, 135), helper.latLngFromWorld({1.25, 0.5}));
     EXPECT_TRUE(helper.hasLatLng({1.25, 0.5}));
@@ -98,7 +98,7 @@ TEST(CRSWorldCoordinateHelper, LatitudeRangeOfAPolarProjection) {
 }
 
 TEST(CRSWorldCoordinateHelper, LatitudeRangeOfTheIdentity) {
-    const CRSWorldCoordinateHelper helper(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& helper = *getRegisteredProjection("identity");
     EXPECT_EQ((std::array<double, 2>{-90, 90}), helper.latitudeRange());
 }
 
@@ -128,9 +128,16 @@ TEST(AddProjection, NeedsForwardAndInverse) {
 
 TEST(RemoveProjection, RemovesARegisteredProjection) {
     addProjection(test::disc("test:removed"));
-    ASSERT_TRUE(getRegisteredProjection("test:removed"));
+    const auto removed = getRegisteredProjection("test:removed");
+    ASSERT_TRUE(removed);
     removeProjection("test:removed");
     EXPECT_FALSE(getRegisteredProjection("test:removed"));
+
+    // As in GL JS, the name is free again, and whatever still holds the removed projection keeps it.
+    addProjection(test::wideIdentity("test:removed"));
+    EXPECT_EQ(720, getRegisteredProjection("test:removed")->tileMatrixSet().extentAtZoom0);
+    EXPECT_EQ(180, removed->tileMatrixSet().extentAtZoom0);
+    removeProjection("test:removed");
 }
 
 TEST(RemoveProjection, CannotRemoveTheIdentity) {
@@ -139,7 +146,7 @@ TEST(RemoveProjection, CannotRemoveTheIdentity) {
 }
 
 TEST(ConvertGeometry, ReturnsLatLngThroughTheProjection) {
-    const CRSWorldCoordinateHelper identity(getRegisteredProjection("identity"));
+    const CRSWorldCoordinateHelper& identity = *getRegisteredProjection("identity");
     // The top-left and bottom-right corners of tile 1/1/0 of the identity: lng 0..90, lat 90..0.
     const StubGeometryTileFeature feature(
         {}, FeatureType::LineString, {{{0, 0}, {util::EXTENT, util::EXTENT}}}, PropertyMap{});

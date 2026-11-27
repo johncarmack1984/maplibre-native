@@ -99,9 +99,9 @@ public:
     double getFieldOfView() const;
 
     // Projection
-    /// The style's projection: the one registered under `registeredName`, see `addProjection`, which draws flat, or
-    /// for an empty name the definition.
-    void setProjectionDefinition(const ProjectionDefinition&, const std::string& registeredName = {});
+    /// The style's projection: a registered one, see `addProjection`, which draws flat, or for null the definition.
+    void setProjectionDefinition(const ProjectionDefinition&,
+                                 std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection = nullptr);
     /// The projection the style gives at a zoom, which constrains an animation's target as it constrains a jump.
     void setProjectionForZoom(std::function<ProjectionDefinition(double zoom)>);
     void setNorthOrientation(NorthOrientation);
@@ -140,6 +140,8 @@ public:
 
     // Conversion and projection
     ScreenCoordinate latLngToScreenCoordinate(const LatLng&) const;
+    /// `latLngToScreenCoordinate` for each lat/lng, converted in one batch in a registered projection.
+    std::vector<ScreenCoordinate> latLngsToScreenCoordinates(const std::vector<LatLng>&) const;
     LatLng screenCoordinateToLatLng(const ScreenCoordinate&, LatLng::WrapMode = LatLng::Wrapped) const;
     bool isLocationOccluded(const LatLng& latLng) const { return state.isLocationOccluded(latLng); }
 
