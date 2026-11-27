@@ -11,10 +11,24 @@ PLUGIN_API_TESTS = [
 
 cc_library(
     name = "testutils",
-    hdrs = glob(["include/mln/test/*.hpp"]),
+    hdrs = glob(
+        ["include/mln/test/*.hpp"],
+        exclude = ["include/mln/test/national_grid.hpp"],
+    ),
     strip_include_prefix = "include",
     deps = [
+        ":national_grid",
         "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "national_grid",
+    hdrs = ["include/mln/test/national_grid.hpp"],
+    strip_include_prefix = "include",
+    visibility = [
+        "//platform/glfw:__pkg__",
+        "//render-test:__pkg__",
     ],
 )
 
