@@ -1,5 +1,7 @@
 #include <mln/map/camera.hpp>
 #include <mln/map/transform.hpp>
+#include <mln/map/world_coordinate_helper.hpp>
+#include <mln/util/camera.hpp>
 #include <mln/util/constants.hpp>
 #include <mln/util/mat4.hpp>
 #include <mln/util/math.hpp>
@@ -13,6 +15,7 @@
 #include <mln/util/platform.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <utility>
 #include <numbers>
@@ -764,12 +767,35 @@ double Transform::getMaxPitchForEdgeInsets(const EdgeInsets& insets) const {
 }
 
 FreeCameraOptions Transform::getFreeCameraOptions() const {
-    return state.getFreeCameraOptions();
+    FreeCameraOptions options = state.getFreeCameraOptions();
+    const auto& helper = state.getProjection().worldCoordinateHelper();
+    if (isMercator(helper)) {
+        return options;
+    }
+    const vec3 world = *options.position;
+    const Point<double> point{world[0], world[1]};
+    options.setLocation(
+        {.location = helper.latLngFromWorld(point), .altitude = world[2] * helper.metersPerWorldUnit(point)});
+    return options;
 }
 
 void Transform::setFreeCameraOptions(const FreeCameraOptions& options) {
     cancelTransitions();
-    state.setFreeCameraOptions(options);
+    const auto& helper = state.getProjection().worldCoordinateHelper();
+    if (isMercator(helper) || !options.position) {
+        state.setFreeCameraOptions(options);
+        return;
+    }
+    // A position that is not finite has no lat/lng, so it is ignored, as the state ignores a NaN one.
+    FreeCameraOptions inWorld = options;
+    if (std::ranges::all_of(*options.position, [](double value) { return std::isfinite(value); })) {
+        const LatLngAltitude location = util::latLngAltitudeFromMercator(*options.position);
+        const Point<double> point = helper.worldFromLatLng(location.location);
+        inWorld.position = vec3{{point.x, point.y, location.altitude / helper.metersPerWorldUnit(point)}};
+    } else {
+        inWorld.position.reset();
+    }
+    state.setFreeCameraOptions(inWorld);
 }
 
 } // namespace mln
