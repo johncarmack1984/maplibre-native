@@ -41,6 +41,7 @@ objc_library(
     ],
     deps = [
         "//platform:ios-sdk",
+        "//test:crs",
         "//test:national_grid",
     ],
 )
