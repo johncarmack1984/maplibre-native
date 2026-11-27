@@ -2,6 +2,7 @@
 
 #import "MLNFoundation.h"
 
+#import <mln/map/map.hpp>
 #import <mln/util/projection.hpp>
 
 #if !TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
@@ -45,16 +46,16 @@ mln::LatLng MLNLatLngFromLocationCoordinate2D(CLLocationCoordinate2D coordinate)
   }
 }
 
-CLLocationDistance MLNAltitudeForMetersPerPoint(CLLocationDistance metersPerPoint, CGFloat pitch,
-                                                CGSize size) {
+static CLLocationDistance MLNAltitudeForMetersPerPoint(CLLocationDistance metersPerPoint,
+                                                       CGFloat pitch, CGSize size) {
   CLLocationDistance metersTall = metersPerPoint * size.height;
   CLLocationDistance altitude =
       metersTall / 2 / std::tan(MLNRadiansFromDegrees(MLNAngularFieldOfView) / 2.);
   return altitude * std::sin(M_PI_2 - MLNRadiansFromDegrees(pitch)) / std::sin(M_PI_2);
 }
 
-CLLocationDistance MLNMetersPerPointForAltitude(CLLocationDistance altitude, CGFloat pitch,
-                                                CGSize size) {
+static CLLocationDistance MLNMetersPerPointForAltitude(CLLocationDistance altitude, CGFloat pitch,
+                                                       CGSize size) {
   CLLocationDistance eyeAltitude =
       altitude / std::sin(M_PI_2 - MLNRadiansFromDegrees(pitch)) * std::sin(M_PI_2);
   CLLocationDistance metersTall =
@@ -74,6 +75,42 @@ double MLNZoomLevelForAltitude(CLLocationDistance altitude, CGFloat pitch,
   CGFloat mapPixelWidthAtZoom = std::cos(MLNRadiansFromDegrees(latitude)) * mln::util::M2PI *
                                 mln::util::EARTH_RADIUS_M / metersPerPixel;
   return ::log2(mapPixelWidthAtZoom / mln::util::tileSize_D);
+}
+
+BOOL MLNMapIsInRegisteredProjection(const mln::Map *map) {
+  return map && map->getRegisteredProjectionMetersPerPixel(0).has_value();
+}
+
+CLLocationDistance MLNMetersPerPointAtCoordinate(const mln::Map *map,
+                                                 CLLocationCoordinate2D coordinate,
+                                                 double zoomLevel) {
+  if (MLNMapIsInRegisteredProjection(map) && CLLocationCoordinate2DIsValid(coordinate)) {
+    return map->getMetersPerPixelAt(MLNLatLngFromLocationCoordinate2D(coordinate)) *
+           std::pow(2.0, *map->getCameraOptions().zoom - zoomLevel);
+  }
+  return mln::Projection::getMetersPerPixelAtLatitude(coordinate.latitude, zoomLevel);
+}
+
+CLLocationDistance MLNAltitudeForZoomLevelInMap(const mln::Map *map, double zoomLevel,
+                                                CGFloat pitch, CLLocationDegrees latitude,
+                                                CGSize size) {
+  if (map) {
+    if (auto metersPerPoint = map->getRegisteredProjectionMetersPerPixel(zoomLevel)) {
+      return MLNAltitudeForMetersPerPoint(*metersPerPoint, pitch, size);
+    }
+  }
+  return MLNAltitudeForZoomLevel(zoomLevel, pitch, latitude, size);
+}
+
+double MLNZoomLevelForAltitudeInMap(const mln::Map *map, CLLocationDistance altitude, CGFloat pitch,
+                                    CLLocationDegrees latitude, CGSize size) {
+  if (map) {
+    if (auto metersPerPointAtZoom0 = map->getRegisteredProjectionMetersPerPixel(0)) {
+      return std::log2(*metersPerPointAtZoom0 /
+                       MLNMetersPerPointForAltitude(altitude, pitch, size));
+    }
+  }
+  return MLNZoomLevelForAltitude(altitude, pitch, latitude, size);
 }
 
 MLNRadianDistance MLNDistanceBetweenRadianCoordinates(MLNRadianCoordinate2D from,

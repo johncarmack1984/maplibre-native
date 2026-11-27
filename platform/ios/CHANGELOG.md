@@ -2,12 +2,6 @@
 
 MapLibre welcomes participation and contributions from everyone. Please read [`MapLibre iOS Developer Guide`](https://maplibre.org/maplibre-native/docs/book/ios/index.html) to get started.
 
-## main
-
-### Features
-
-- Add `MLNCoordinateReferenceSystem` and `+[MLNStyle addProjection:error:]`, experimental, so a map can draw tiles cut in another coordinate reference system, such as NASA GIBS's EPSG:3413 grid of the Arctic, as MapLibre GL JS's `addProjection` does. A style selects one by name in its `projection.type`. In such a projection, `metersPerPointAtLatitude:`, the scale bar, and the accuracy ring follow its scale, and `MLNMapCamera.altitude` counts its units as meters ([#95](https://github.com/maplibre/maplibre-native/issues/95)).
-
 ## 7.1.0
 
 ### Features

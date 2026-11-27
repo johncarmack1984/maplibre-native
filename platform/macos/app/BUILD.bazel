@@ -6,7 +6,11 @@ objc_library(
     srcs = glob([
         "*.h",
         "*.m",
-    ]),
+    ]) + [
+        "//platform/darwin:app/MBXArcticProjection.h",
+        "//platform/darwin:app/MBXArcticProjection.m",
+    ],
+    copts = ["-Iplatform/darwin/app"],
     enable_modules = True,
     deps = [
         "//platform:macos-sdk",
@@ -23,7 +27,9 @@ macos_application(
     resources = glob([
         "*.lproj/**",
         "Assets.xcassets/**",
-    ]),
+    ]) + [
+        "//platform/glfw:assets/arctic.json",
+    ],
     visibility = [
         "@rules_xcodeproj//xcodeproj:generated",
     ],

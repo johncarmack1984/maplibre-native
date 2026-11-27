@@ -77,7 +77,6 @@ MLN_IOS_PUBLIC_OBJCPP_METAL_SOURCE = [
 MLN_PUBLIC_IOS_APP_HEADERS = [
     "app/MBXAnnotationView.h",
     "app/MBXAppDelegate.h",
-    "app/MBXArcticProjection.h",
     "app/MBXCustomCalloutView.h",
     "app/MBXCustomLocationViewController.h",
     "app/MBXEmbeddedMapViewController.h",
@@ -97,7 +96,6 @@ MLN_PUBLIC_IOS_APP_HEADERS = [
 MLN_PUBLIC_IOS_APP_SOURCE = [
     "app/MBXAnnotationView.m",
     "app/MBXAppDelegate.m",
-    "app/MBXArcticProjection.m",
     "app/MBXCustomCalloutView.m",
     "app/MBXCustomLocationViewController.m",
     "app/MBXEmbeddedMapViewController.m",

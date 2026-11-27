@@ -311,6 +311,8 @@ exports_files(
         "test/MLNSDKTestHelpers.swift",
         "app/CustomStyleLayerExample.h",
         "app/CustomStyleLayerExample.m",
+        "app/MBXArcticProjection.h",
+        "app/MBXArcticProjection.m",
         "include/mln/util/image+MLNAdditions.hpp",
     ] + MLN_DARWIN_PUBLIC_OBJC_SOURCE +
     MLN_DARWIN_PUBLIC_OBJCPP_SOURCE +
