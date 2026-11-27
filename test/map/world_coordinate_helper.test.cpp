@@ -11,6 +11,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <new>
 #include <span>
 #include <stdexcept>
 
@@ -84,6 +85,15 @@ TEST(CRSWorldCoordinateHelper, ThrowsWhereTheInverseNeverAnswers) {
     };
     const CRSWorldCoordinateHelper helper(std::make_shared<const CRS>(std::move(crs)));
     EXPECT_THROW(helper.latLngFromWorld({0.5, 0.5}), std::runtime_error);
+}
+
+TEST(CRSWorldCoordinateHelper, PassesOnWhatAConverterThrows) {
+    CRS crs = test::disc("test:out-of-memory");
+    crs.inverse = [](std::span<const std::array<double, 2>>, std::span<std::array<double, 2>>) {
+        throw std::bad_alloc();
+    };
+    const CRSWorldCoordinateHelper helper(std::make_shared<const CRS>(std::move(crs)));
+    EXPECT_THROW(helper.latLngFromWorld({0.5, 0.5}), std::bad_alloc);
 }
 
 TEST(CRSWorldCoordinateHelper, LatitudeRangeOfAPolarProjection) {

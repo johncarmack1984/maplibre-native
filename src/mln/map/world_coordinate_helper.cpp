@@ -208,12 +208,7 @@ Pair CRSWorldCoordinateHelper::crsPosition(const Pair& world) const {
 }
 
 void CRSWorldCoordinateHelper::finiteInverses(std::span<const Pair> positions, std::span<Pair> lngLats) const {
-    try {
-        crs->inverse(positions, lngLats);
-    } catch (...) {
-        std::ranges::fill(lngLats, noAnswer);
-        return;
-    }
+    crs->inverse(positions, lngLats);
     for (Pair& lngLat : lngLats) {
         if (!isAnswer(lngLat)) {
             lngLat = noAnswer;
