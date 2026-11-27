@@ -16,6 +16,7 @@
 #include <mln/style/sources/tile_source_impl.hpp>
 #include <mln/style/sources/custom_geometry_source.hpp>
 #include <mln/style/sources/geojson_source.hpp>
+#include <mln/style/sources/geojson_source_impl.hpp>
 #include <mln/style/sources/image_source.hpp>
 #include <mln/style/sources/raster_dem_source.hpp>
 #include <mln/style/sources/raster_source.hpp>
@@ -800,10 +801,11 @@ constexpr auto identityStyle = R"({"version": 8, "projection": {"type": "identit
 } // namespace
 
 TEST(Source, GeoJSONDataTilesTheDataWhereTheIdentityProjectionPutsIt) {
-    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"),
-                                          Scheduler::GetSequenced(),
-                                          GeoJSONOptions::defaultOptions(),
-                                          getRegisteredProjection("identity"));
+    const auto data = GeoJSONSource::Impl::createData(
+        mapbox::geojson::parse(R"({"type": "Point", "coordinates": [45, 45]})"),
+        Scheduler::GetSequenced(),
+        GeoJSONOptions::defaultOptions(),
+        getRegisteredProjection("identity"));
 
     EXPECT_EQ("identity", data->getProjection());
     const auto features = rootTile(*data);
@@ -813,12 +815,13 @@ TEST(Source, GeoJSONDataTilesTheDataWhereTheIdentityProjectionPutsIt) {
 }
 
 TEST(Source, GeoJSONDataLeavesOutPointsOutsideTheWorldSquareOfARegisteredProjection) {
-    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
+    const auto data = GeoJSONSource::Impl::createData(
+        mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [-30, -30]}},
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [150, 30]}}]})"),
-                                          Scheduler::GetSequenced(),
-                                          GeoJSONOptions::defaultOptions(),
-                                          getRegisteredProjection("identity"));
+        Scheduler::GetSequenced(),
+        GeoJSONOptions::defaultOptions(),
+        getRegisteredProjection("identity"));
 
     const auto features = rootTile(*data);
     ASSERT_EQ(1u, features.size());
@@ -829,12 +832,13 @@ TEST(Source, GeoJSONDataLeavesOutPointsOutsideTheWorldSquareOfARegisteredProject
 TEST(Source, GeoJSONDataReturnsClusterLeavesInLatLngInARegisteredProjection) {
     auto options = makeMutable<GeoJSONOptions>();
     options->cluster = true;
-    const auto data = GeoJSONData::create(mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
+    const auto data = GeoJSONSource::Impl::createData(
+        mapbox::geojson::parse(R"({"type": "FeatureCollection", "features": [
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [45, 45]}},
                                               {"type": "Feature", "properties": {}, "geometry": {"type": "Point", "coordinates": [45, 45]}}]})"),
-                                          Scheduler::GetSequenced(),
-                                          std::move(options),
-                                          getRegisteredProjection("identity"));
+        Scheduler::GetSequenced(),
+        std::move(options),
+        getRegisteredProjection("identity"));
 
     const auto features = rootTile(*data);
     ASSERT_EQ(1u, features.size());

@@ -1,5 +1,6 @@
 #include <mln/style/projection.hpp>
 #include <mln/style/projection_impl.hpp>
+#include <mln/style/projection_names.hpp>
 #include <mln/style/projection_observer.hpp>
 #include <mln/style/conversion/property_value.hpp>
 #include <mln/style/conversion_impl.hpp>

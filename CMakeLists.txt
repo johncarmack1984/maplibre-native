@@ -854,6 +854,7 @@ list(APPEND SRC_FILES
     ${PROJECT_SOURCE_DIR}/src/mln/style/projection.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/style/projection_definition.cpp
     ${PROJECT_SOURCE_DIR}/src/mln/style/projection_impl.hpp
+    ${PROJECT_SOURCE_DIR}/src/mln/style/projection_names.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/style/projection_observer.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/style/properties.hpp
     ${PROJECT_SOURCE_DIR}/src/mln/style/property_expression.cpp

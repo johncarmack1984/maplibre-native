@@ -263,7 +263,7 @@ void Style::Impl::addSource(std::unique_ptr<Source> source) {
     source->setObserver(this);
     auto item = sources.add(std::move(source));
     if (auto* geoJSONSource = item->as<GeoJSONSource>()) {
-        geoJSONSource->setProjection(projection->impl->registeredProjection);
+        geoJSONSource->setProjection(projection->impl);
     }
     if (fileSource) {
         item->loadDescription(*fileSource);
@@ -540,10 +540,9 @@ void Style::Impl::onLightChanged(const Light&) {
 }
 
 void Style::Impl::onProjectionChanged(const Projection& projection_) {
-    const auto registeredProjection = projection_.impl->registeredProjection;
     for (const auto& source : sources) {
         if (auto* geoJSONSource = source->as<GeoJSONSource>()) {
-            geoJSONSource->setProjection(registeredProjection);
+            geoJSONSource->setProjection(projection_.impl);
         }
     }
     observer->onUpdate();

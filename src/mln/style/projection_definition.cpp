@@ -1,4 +1,5 @@
 #include <mln/style/projection_definition.hpp>
+#include <mln/style/projection_names.hpp>
 
 #include <algorithm>
 #include <cassert>
