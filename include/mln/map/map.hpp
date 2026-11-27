@@ -125,6 +125,9 @@ public:
     /// The meters on the ground a pixel spans at a location, at the current zoom: Mercator's scale at its latitude, or
     /// in a registered projection the distance across a pixel there along the projection's x axis.
     double getMetersPerPixelAt(const LatLng&) const;
+    /// In a registered projection, the meters the camera counts across a pixel at a zoom: the projection's units, which
+    /// count as meters, as in GL JS. Empty in Mercator, where they depend on the latitude.
+    std::optional<double> getRegisteredProjectionMetersPerPixel(double zoom) const;
 
     // Transform
     TransformState getTransformState() const;

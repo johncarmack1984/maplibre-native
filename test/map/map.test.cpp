@@ -258,6 +258,22 @@ TEST(Map, MetersPerPixelInARegisteredProjection) {
     removeProjection("test:polar-scale");
 }
 
+TEST(Map, RegisteredProjectionMetersPerPixelIsItsUnitsAcrossAPixel) {
+    addProjection(test::polarStereographic("test:polar-camera"));
+    {
+        MapTest<> test;
+        EXPECT_FALSE(test.map.getRegisteredProjectionMetersPerPixel(3));
+
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-camera"}, "sources": {}, "layers": []})");
+        test.map.jumpTo(CameraOptions().withCenter(LatLng{80, -45}).withZoom(4));
+
+        EXPECT_DOUBLE_EQ(8388608 / mln::Projection::worldSize(std::pow(2.0, 3)),
+                         test.map.getRegisteredProjectionMetersPerPixel(3).value());
+    }
+    removeProjection("test:polar-camera");
+}
+
 TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
     FixtureLog log;
     MapTest<> test;

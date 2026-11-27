@@ -483,6 +483,14 @@ double Map::getMetersPerPixelAt(const LatLng& latLng) const {
            2;
 }
 
+std::optional<double> Map::getRegisteredProjectionMetersPerPixel(double zoom) const {
+    const auto& helper = impl->transform.getState().getProjection().worldCoordinateHelper();
+    if (isMercator(helper)) {
+        return std::nullopt;
+    }
+    return helper.tileMatrixSet().extentAtZoom0 / mln::Projection::worldSize(std::pow(2.0, zoom));
+}
+
 // MARK: - Transform
 
 TransformState Map::getTransformState() const {
