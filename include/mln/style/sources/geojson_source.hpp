@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mln/style/expression/expression.hpp>
+#include <mln/style/projection.hpp>
 #include <mln/style/source.hpp>
 #include <mln/tile/tile_id.hpp>
 #include <mln/util/constants.hpp>
@@ -13,9 +14,10 @@
 namespace mln {
 
 class AsyncRequest;
-class CRSWorldCoordinateHelper;
 class Scheduler;
 namespace style {
+
+class Style;
 
 struct GeoJSONOptions {
     // GeoJSON-VT options
@@ -45,13 +47,9 @@ class GeoJSONData {
 public:
     using TileFeatures = mapbox::feature::feature_collection<int16_t>;
     using Features = mapbox::feature::feature_collection<double>;
-    /// `projection` is the registered projection, see `addProjection`, the data is drawn in, or null for the
-    /// built-in ones. In a registered projection the data is tiled in its world square, and cluster children and
-    /// leaves come back in lat/lng.
     static std::shared_ptr<GeoJSONData> create(const GeoJSON&,
                                                std::shared_ptr<Scheduler> sequencedScheduler,
-                                               const Immutable<GeoJSONOptions>& = GeoJSONOptions::defaultOptions(),
-                                               std::shared_ptr<const CRSWorldCoordinateHelper> projection = nullptr);
+                                               const Immutable<GeoJSONOptions>& = GeoJSONOptions::defaultOptions());
 
     virtual ~GeoJSONData() = default;
     virtual void getTile(const CanonicalTileID&, const std::function<void(TileFeatures)>&, bool runSynchronously) = 0;
@@ -65,6 +63,7 @@ public:
     const std::string& getProjection() const { return projection; }
 
 private:
+    friend class GeoJSONSource;
     std::string projection;
 };
 
@@ -78,11 +77,6 @@ public:
     void setGeoJSON(const GeoJSON&);
     void setGeoJSON(GeoJSON&&);
     void setGeoJSONData(std::shared_ptr<GeoJSONData>);
-
-    /// The registered projection, see `addProjection`, of the style the source is in, or null for the built-in
-    /// ones; the source tiles its data in it. The style sets it when the source joins it and when its projection
-    /// changes, and data the source was given before it joined a style is tiled then.
-    void setProjection(std::shared_ptr<const CRSWorldCoordinateHelper>);
 
     std::optional<std::string> getURL() const;
     const GeoJSONOptions& getOptions() const;
@@ -103,8 +97,14 @@ protected:
     Mutable<Source::Impl> createMutable() const noexcept final;
 
 private:
+    friend class Style;
+    /// Tiles the data in the projection of the style the source is in. The style calls it when the source joins it and
+    /// when its projection changes, and data the source was given before it joined a style is tiled then.
+    void setProjection(Immutable<Projection::Impl>);
+
     std::optional<std::string> url;
-    std::optional<std::shared_ptr<const CRSWorldCoordinateHelper>> projection;
+    /// The projection of the style the source is in, empty until it joins one.
+    std::optional<Immutable<Projection::Impl>> projection;
     std::optional<GeoJSON> pendingGeoJSON;
     std::unique_ptr<AsyncRequest> req;
     std::atomic<uint64_t> requestGeneration{0};

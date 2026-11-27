@@ -151,6 +151,16 @@ Point<double> VerticalPerspectiveProjection::project(const LatLng& latLng, doubl
     return Projection::project(latLng, scale);
 }
 
+std::vector<Point<double>> VerticalPerspectiveProjection::project(const std::vector<LatLng>& latLngs,
+                                                                  double scale) const {
+    std::vector<Point<double>> projected;
+    projected.reserve(latLngs.size());
+    for (const LatLng& latLng : latLngs) {
+        projected.push_back(project(latLng, scale));
+    }
+    return projected;
+}
+
 LatLng VerticalPerspectiveProjection::unproject(const Point<double>& point,
                                                 double scale,
                                                 LatLng::WrapMode wrapMode) const {

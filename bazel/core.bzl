@@ -475,6 +475,7 @@ MLN_CORE_SOURCE = [
     "src/mln/style/projection.cpp",
     "src/mln/style/projection_definition.cpp",
     "src/mln/style/projection_impl.hpp",
+    "src/mln/style/projection_names.hpp",
     "src/mln/style/projection_observer.hpp",
     "src/mln/style/properties.hpp",
     "src/mln/style/property_expression.cpp",

@@ -13,6 +13,7 @@ public:
     const WorldCoordinateHelper& worldCoordinateHelper() const override { return *mercatorWorldCoordinateHelper(); }
 
     Point<double> project(const LatLng&, double scale) const override;
+    std::vector<Point<double>> project(const std::vector<LatLng>&, double scale) const override;
     LatLng unproject(const Point<double>&, double scale, LatLng::WrapMode) const override;
 
     void tileMatrix(mat4&, const UnwrappedTileID&, double scale) const override;

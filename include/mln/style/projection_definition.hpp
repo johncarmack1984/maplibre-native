@@ -3,8 +3,6 @@
 #include <mln/util/feature.hpp>
 
 #include <cstdint>
-#include <optional>
-#include <string>
 #include <string_view>
 
 namespace mln {
@@ -16,12 +14,6 @@ enum class ProjectionType : uint8_t {
     /// The vertical perspective that hands over to Mercator between zoom 11 and 12.
     Globe,
 };
-
-std::string_view projectionTypeName(ProjectionType);
-std::optional<ProjectionType> projectionTypeFromName(std::string_view);
-
-/// `identity`, or a name with a colon, which is how registered projections are named.
-bool isRegisteredProjectionName(std::string_view);
 
 /// The value of the style's `projection.type`: a single projection, or a transition between two.
 struct ProjectionDefinition {
@@ -44,12 +36,5 @@ struct ProjectionDefinition {
 
     mln::Value serialize() const;
 };
-
-/// What a name in a projection expression draws, or a transition between two names. A registered name only works as
-/// a plain `projection.type`, so the globe draws it, as GL JS's globe draws any name it does not know.
-std::optional<ProjectionDefinition> projectionDefinitionInExpression(std::string_view name);
-std::optional<ProjectionDefinition> projectionDefinitionInExpression(std::string_view from,
-                                                                     std::string_view to,
-                                                                     double transition);
 
 } // namespace mln

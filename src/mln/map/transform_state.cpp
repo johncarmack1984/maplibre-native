@@ -955,17 +955,9 @@ std::vector<ScreenCoordinate> TransformState::latLngsToScreenCoordinates(const s
         }
         return screen;
     }
-    std::vector<std::array<double, 2>> lngLats;
-    lngLats.reserve(latLngs.size());
-    for (const LatLng& latLng : latLngs) {
-        lngLats.push_back({latLng.longitude(), latLng.latitude()});
-    }
-    std::vector<std::array<double, 2>> world(lngLats.size());
-    registeredProjection->worldFromLngLats(lngLats, world);
     vec4 p;
-    for (const auto& position : world) {
-        screen.push_back(
-            projectedToScreenCoordinate(Point<double>{position[0], position[1]} * Projection::worldSize(scale), p));
+    for (const Point<double>& projected : projection->project(latLngs, scale)) {
+        screen.push_back(projectedToScreenCoordinate(projected, p));
     }
     return screen;
 }

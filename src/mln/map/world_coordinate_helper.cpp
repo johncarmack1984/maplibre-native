@@ -41,14 +41,8 @@ public:
         }
     }
 
-    bool hasLatLng(const Point<double>&) const override { return true; }
-
     double metersPerWorldUnit(const Point<double>& point) const override {
         return Projection::getMetersPerPixelAtLatitude(latLngFromWorld(point).latitude(), 0) * util::tileSize_D;
-    }
-
-    double worldZFromAltitude(double altitude, const LatLng& latLng) const override {
-        return altitude / (Projection::getMetersPerPixelAtLatitude(latLng.latitude(), 0) * util::tileSize_D);
     }
 
     bool wraps() const override { return true; }
@@ -209,24 +203,12 @@ void CRSWorldCoordinateHelper::lngLatsFromWorld(std::span<const Pair> world, std
     }
 }
 
-bool CRSWorldCoordinateHelper::hasLatLng(const Point<double>& point) const {
-    const std::array<Pair, 1> world{{{point.x, point.y}}};
-    std::array<Pair, 1> lngLat{};
-    ownAnswers(world, lngLat);
-    return isAnswer(lngLat[0]);
-}
-
 Pair CRSWorldCoordinateHelper::crsPosition(const Pair& world) const {
     return {originX + world[0] * extent, originY - world[1] * extent};
 }
 
 void CRSWorldCoordinateHelper::finiteInverses(std::span<const Pair> positions, std::span<Pair> lngLats) const {
-    try {
-        crs->inverse(positions, lngLats);
-    } catch (...) {
-        std::ranges::fill(lngLats, noAnswer);
-        return;
-    }
+    crs->inverse(positions, lngLats);
     for (Pair& lngLat : lngLats) {
         if (!isAnswer(lngLat)) {
             lngLat = noAnswer;

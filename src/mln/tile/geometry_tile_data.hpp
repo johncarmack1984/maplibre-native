@@ -107,9 +107,7 @@ Feature::geometry_type convertGeometry(const GeometryTileFeature& geometryTileFe
 GeometryCollection convertGeometry(const Feature::geometry_type& geometryTileFeature, const CanonicalTileID& tileID);
 
 // convert from GeometryTileFeature to Feature (eventually we should eliminate GeometryTileFeature)
-Feature convertFeature(const GeometryTileFeature&,
-                       const CanonicalTileID&,
-                       const WorldCoordinateHelper& = *mercatorWorldCoordinateHelper());
+Feature convertFeature(const GeometryTileFeature&, const CanonicalTileID&, const WorldCoordinateHelper&);
 
 // Fix up possibly-non-V2-compliant polygon geometry using angus clipper.
 // The result is guaranteed to have correctly wound, strictly simple rings.

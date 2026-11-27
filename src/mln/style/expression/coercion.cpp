@@ -2,6 +2,7 @@
 #include <mln/style/expression/check_subtype.hpp>
 #include <mln/style/expression/util.hpp>
 #include <mln/style/conversion_impl.hpp>
+#include <mln/style/projection_names.hpp>
 #include <mln/util/string.hpp>
 
 #include <algorithm>

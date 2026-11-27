@@ -22,6 +22,7 @@ struct CRS {
         forward;
     /// Each CRS position to lng/lat in degrees, NaN where there is no answer. Called from any thread, several at once.
     /// Both converters are destroyed on whichever thread drops the last reference to the projection.
+    /// Neither converter may throw: NaN marks a position without an answer.
     std::function<void(std::span<const std::array<double, 2>> positions, std::span<std::array<double, 2>> lngLats)>
         inverse;
     TileMatrixSet tileMatrixSet;

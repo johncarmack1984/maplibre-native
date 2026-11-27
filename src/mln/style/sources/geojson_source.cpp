@@ -2,6 +2,7 @@
 #include <mln/style/conversion/geojson.hpp>
 #include <mln/style/conversion/json.hpp>
 #include <mln/style/layer.hpp>
+#include <mln/style/projection_impl.hpp>
 #include <mln/style/source_observer.hpp>
 #include <mln/style/sources/geojson_source.hpp>
 #include <mln/style/sources/geojson_source_impl.hpp>
@@ -51,7 +52,8 @@ void GeoJSONSource::setGeoJSON(const mapbox::geojson::geojson& geoJSON) {
         pendingGeoJSON = geoJSON;
         return;
     }
-    setGeoJSONData(GeoJSONData::create(geoJSON, sequencedScheduler, impl().getOptions(), *projection));
+    setGeoJSONData(
+        Impl::createData(geoJSON, sequencedScheduler, impl().getOptions(), (*projection)->registeredProjection));
 }
 
 void GeoJSONSource::setGeoJSON(mapbox::geojson::geojson&& geoJSON) {
@@ -59,7 +61,8 @@ void GeoJSONSource::setGeoJSON(mapbox::geojson::geojson&& geoJSON) {
         pendingGeoJSON = std::move(geoJSON);
         return;
     }
-    setGeoJSONData(GeoJSONData::create(geoJSON, sequencedScheduler, impl().getOptions(), *projection));
+    setGeoJSONData(
+        Impl::createData(geoJSON, sequencedScheduler, impl().getOptions(), (*projection)->registeredProjection));
 }
 
 void GeoJSONSource::setGeoJSONData(std::shared_ptr<GeoJSONData> geoJSONData) {
@@ -69,10 +72,11 @@ void GeoJSONSource::setGeoJSONData(std::shared_ptr<GeoJSONData> geoJSONData) {
     observer->onSourceChanged(*this);
 }
 
-void GeoJSONSource::setProjection(std::shared_ptr<const CRSWorldCoordinateHelper> projection_) {
+void GeoJSONSource::setProjection(Immutable<Projection::Impl> projection_) {
     projection = std::move(projection_);
     if (pendingGeoJSON) {
-        setGeoJSONData(GeoJSONData::create(*pendingGeoJSON, sequencedScheduler, impl().getOptions(), *projection));
+        setGeoJSONData(Impl::createData(
+            *pendingGeoJSON, sequencedScheduler, impl().getOptions(), (*projection)->registeredProjection));
     }
 }
 
@@ -110,14 +114,15 @@ void GeoJSONSource::loadDescription(FileSource& fileSource) {
                 [currentImpl = baseImpl,
                  data = res.data,
                  seqScheduler{sequencedScheduler},
-                 projection_ = projection.value_or(nullptr)]() -> Immutable<Source::Impl> {
+                 registeredProjection = projection ? (*projection)->registeredProjection
+                                                   : nullptr]() -> Immutable<Source::Impl> {
                     assert(data);
                     auto& current = static_cast<const Impl&>(*currentImpl);
                     conversion::Error error;
                     std::shared_ptr<GeoJSONData> geoJSONData;
                     if (std::optional<GeoJSON> geoJSON = conversion::convertJSON<GeoJSON>(*data, error)) {
-                        geoJSONData = GeoJSONData::create(
-                            *geoJSON, std::move(seqScheduler), current.getOptions(), projection_);
+                        geoJSONData = Impl::createData(
+                            *geoJSON, std::move(seqScheduler), current.getOptions(), registeredProjection);
                     } else {
                         // Create an empty GeoJSON VT object to make sure we're not
                         // infinitely waiting for tiles to load.
