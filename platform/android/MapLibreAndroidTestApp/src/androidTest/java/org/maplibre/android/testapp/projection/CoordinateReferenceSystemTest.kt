@@ -1,5 +1,6 @@
 package org.maplibre.android.testapp.projection
 
+import android.graphics.PointF
 import android.graphics.RectF
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
 import org.junit.Assert.assertEquals
@@ -11,17 +12,24 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.CoordinateReferenceSystem
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.GeometryTileProvider
 import org.maplibre.android.testapp.activity.BaseTest
 import org.maplibre.android.testapp.activity.projection.NationalGridActivity
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * Tests for [Style.addProjection], [Style.removeProjection] and maps drawn in a projection registered from Kotlin.
@@ -135,6 +143,87 @@ class CoordinateReferenceSystemTest : BaseTest() {
         }
     }
 
+    @Test
+    fun customGeometrySourceGetsEachTilesBoundsInTheProjection() {
+        val crs = ArcticProjection.coordinateReferenceSystem
+        withProjection(crs) {
+            loadStyle(crs.name, LatLng(75.0, -45.0), 3.0)
+            val requests = ConcurrentLinkedQueue<Pair<LatLngBounds, Int>>()
+            val provider = object : GeometryTileProvider {
+                override fun getFeaturesForBounds(bounds: LatLngBounds, zoomLevel: Int): FeatureCollection {
+                    requests.add(bounds to zoomLevel)
+                    return FeatureCollection.fromFeature(Feature.fromGeometry(boxPolygon(bounds)))
+                }
+            }
+            val idle = CountDownLatch(1)
+            val onIdle = MapView.OnDidBecomeIdleListener { if (requests.isNotEmpty()) idle.countDown() }
+            rule.runOnUiThread {
+                mapView.addOnDidBecomeIdleListener(onIdle)
+                maplibreMap.style!!.addSource(CustomGeometrySource("tiles", provider))
+                maplibreMap.style!!.addLayer(FillLayer("tiles", "tiles"))
+            }
+            val drawn = idle.await(WAIT_SECONDS, TimeUnit.SECONDS)
+            rule.runOnUiThread { mapView.removeOnDidBecomeIdleListener(onIdle) }
+            assertTrue("The custom geometry source's tiles are drawn", drawn)
+
+            // Each tile draws the bounds it was given, so the view is covered only if each tile's bounds contain it.
+            val uncovered = onMain {
+                (1..GRID_SIDE).flatMap { i -> (1..GRID_SIDE).map { j -> i to j } }.map { (i, j) ->
+                    PointF(mapView.width * i / (GRID_SIDE + 1f), mapView.height * j / (GRID_SIDE + 1f))
+                }.filter { maplibreMap.queryRenderedFeatures(it, "tiles").isEmpty() }
+            }
+            assertEquals("Points of the view outside every tile's box", emptyList<PointF>(), uncovered)
+
+            for ((bounds, zoom) in requests) {
+                val tiles = (0 until (1 shl zoom)).flatMap { x -> (0 until (1 shl zoom)).map { y -> x to y } }
+                assertTrue(
+                    "$bounds at zoom $zoom is the box of a tile's corners",
+                    tiles.any { (x, y) -> sameBounds(bounds, tileCornersBox(crs, zoom, x, y)) }
+                )
+            }
+        }
+    }
+
+    /** A polygon around the box, with each side in steps, so that it follows the parallels and meridians. */
+    private fun boxPolygon(bounds: LatLngBounds): Polygon {
+        val west = bounds.longitudeWest
+        val east = bounds.longitudeEast
+        val south = bounds.latitudeSouth
+        val north = bounds.latitudeNorth
+        val ring = (0 until BOX_STEPS).map { Point.fromLngLat(lerp(west, east, it), south) } +
+            (0 until BOX_STEPS).map { Point.fromLngLat(east, lerp(south, north, it)) } +
+            (0 until BOX_STEPS).map { Point.fromLngLat(lerp(east, west, it), north) } +
+            (0..BOX_STEPS).map { Point.fromLngLat(west, lerp(north, south, it)) }
+        return Polygon.fromLngLats(listOf(ring))
+    }
+
+    private fun lerp(from: Double, to: Double, step: Int): Double = from + (to - from) * step / BOX_STEPS
+
+    /** GL JS's `tileIdToLngLatBounds`: the box of the longitudes and latitudes of the tile's corners. */
+    private fun tileCornersBox(crs: CoordinateReferenceSystem, z: Int, x: Int, y: Int): LatLngBounds {
+        val tileMatrixSet = crs.tileMatrixSet
+        val corners = listOf(x to y, x + 1 to y, x + 1 to y + 1, x to y + 1)
+        val positions = corners.flatMap { (cornerX, cornerY) ->
+            listOf(
+                tileMatrixSet.originX + cornerX.toDouble() / (1 shl z) * tileMatrixSet.extentAtZoom0,
+                tileMatrixSet.originY - cornerY.toDouble() / (1 shl z) * tileMatrixSet.extentAtZoom0
+            )
+        }.toDoubleArray()
+        val lngLats = DoubleArray(positions.size)
+        crs.projection.inverse(positions, lngLats, corners.size)
+        val longitudes = lngLats.filterIndexed { i, _ -> i % 2 == 0 }
+        val latitudes = lngLats.filterIndexed { i, _ -> i % 2 == 1 }
+        return LatLngBounds.from(latitudes.max(), longitudes.max(), latitudes.min(), longitudes.min())
+    }
+
+    private fun sameBounds(a: LatLngBounds, b: LatLngBounds): Boolean =
+        listOf(
+            a.latitudeNorth - b.latitudeNorth,
+            a.longitudeEast - b.longitudeEast,
+            a.latitudeSouth - b.latitudeSouth,
+            a.longitudeWest - b.longitudeWest
+        ).all { abs(it) < BOUNDS_TOLERANCE_DEGREES }
+
     /** Points west of the converter's band, in it and east of it, in one call to the converter. */
     private fun westInEast(): FeatureCollection = FeatureCollection.fromFeatures(
         listOf("west" to 10.0, "in" to 20.0, "east" to 30.0).map { (name, longitude) ->
@@ -219,5 +308,14 @@ class CoordinateReferenceSystemTest : BaseTest() {
 
         /** Long enough for a source to convert a point on the main thread's behalf. */
         const val CONVERSION_MILLIS = 1000L
+
+        /** The view is checked at this many points on a side. */
+        const val GRID_SIDE = 5
+
+        /** The steps on each side of a box polygon. */
+        const val BOX_STEPS = 32
+
+        /** Core and the test take the same corners through the same inverse, so their boxes agree this closely. */
+        const val BOUNDS_TOLERANCE_DEGREES = 1e-9
     }
 }
