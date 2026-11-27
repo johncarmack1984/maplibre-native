@@ -1318,6 +1318,17 @@ struct LabeledAnswer {
     double value;
 };
 
+// Relative tolerances for `MercatorBitIdentity`. An answer that goes through the screen passes through the projection
+// matrix or its inverse, which magnifies libm and fused multiply-add differences between platforms 1e3 to 1e4 times.
+constexpr double mercatorTolerance = 1e-12;
+constexpr double throughScreenTolerance = 1e-10;
+
+struct ExpectedAnswer {
+    std::string label;
+    double value;
+    double relativeTolerance = mercatorTolerance;
+};
+
 /// Answers of the Mercator transform on three cameras, labeled by camera and answer, for `MercatorBitIdentity`.
 std::vector<LabeledAnswer> mercatorTransformAnswers() {
     struct Camera {
@@ -1400,25 +1411,24 @@ std::vector<LabeledAnswer> mercatorTransformAnswers() {
 
 } // namespace
 
-// The Mercator transform's answers on three cameras as they were before the projection seam. The tolerance takes in
+// The Mercator transform's answers on three cameras as they were before the projection seam. The tolerances take in
 // libm and fused multiply-add differences between platforms, not a change to the math.
 TEST(Transform, MercatorBitIdentity) {
-    constexpr double relativeTolerance = 1e-12;
     // For an answer that is exactly zero, which has no scale of its own.
     constexpr double zeroTolerance = 1e-12;
-    const std::vector<LabeledAnswer> expected = {
+    const std::vector<ExpectedAnswer> expected = {
         {"San Francisco center latitude", 37.7749},
         {"San Francisco center longitude", -122.4194},
         {"San Francisco camera x", 0.15985455837673615},
         {"San Francisco camera y", 0.38667951070923756},
         {"San Francisco camera z", 0.00018310546875},
-        {"San Francisco screen x", 236.53339845522552},
-        {"San Francisco screen y", 256.55682579549386},
-        {"San Francisco at screen latitude", 37.76442361680536},
-        {"San Francisco at screen longitude", -122.45005441561364},
+        {"San Francisco screen x", 236.53339845522552, throughScreenTolerance},
+        {"San Francisco screen y", 256.55682579549386, throughScreenTolerance},
+        {"San Francisco at screen latitude", 37.76442361680536, throughScreenTolerance},
+        {"San Francisco at screen longitude", -122.45005441561364, throughScreenTolerance},
         {"San Francisco max pitch scale factor", 1.5},
-        {"San Francisco moved latitude", 37.789268353564324},
-        {"San Francisco moved longitude", -122.37699541782784},
+        {"San Francisco moved latitude", 37.789268353564324, throughScreenTolerance},
+        {"San Francisco moved longitude", -122.37699541782784, throughScreenTolerance},
         {"San Francisco from camera latitude", 37.7749},
         {"San Francisco from camera longitude", -122.4194},
         {"San Francisco from camera zoom", 12.5},
@@ -1433,13 +1443,13 @@ TEST(Transform, MercatorBitIdentity) {
         {"Sydney camera x", 0.9200258333333332},
         {"Sydney camera y", 0.6000922514587762},
         {"Sydney camera z", 0.19128308275549602},
-        {"Sydney screen x", 390.02373135570593},
-        {"Sydney screen y", 310.0191793224831},
-        {"Sydney at screen latitude", -47.379211768724836},
-        {"Sydney at screen longitude", 178.0815126354354},
+        {"Sydney screen x", 390.02373135570593, throughScreenTolerance},
+        {"Sydney screen y", 310.0191793224831, throughScreenTolerance},
+        {"Sydney at screen latitude", -47.379211768724836, throughScreenTolerance},
+        {"Sydney at screen longitude", 178.0815126354354, throughScreenTolerance},
         {"Sydney max pitch scale factor", 1.0},
-        {"Sydney moved latitude", -18.999444839858203},
-        {"Sydney moved longitude", 132.13644348452914},
+        {"Sydney moved latitude", -18.999444839858203, throughScreenTolerance},
+        {"Sydney moved longitude", 132.13644348452914, throughScreenTolerance},
         {"Sydney from camera latitude", -33.86880000000002},
         {"Sydney from camera longitude", 151.20929999999998},
         {"Sydney from camera zoom", 3.2},
@@ -1454,13 +1464,13 @@ TEST(Transform, MercatorBitIdentity) {
         {"Arctic camera x", 0.8687731143749536},
         {"Arctic camera y", 0.8214670122445704},
         {"Arctic camera z", 0.3462593662532578},
-        {"Arctic screen x", 483.83151815022364},
-        {"Arctic screen y", 463.8522840953009},
-        {"Arctic at screen latitude", 15.513337760683484},
-        {"Arctic at screen longitude", 87.66527200559784},
+        {"Arctic screen x", 483.83151815022364, throughScreenTolerance},
+        {"Arctic screen y", 463.8522840953009, throughScreenTolerance},
+        {"Arctic at screen latitude", 15.513337760683484, throughScreenTolerance},
+        {"Arctic at screen longitude", 87.66527200559784, throughScreenTolerance},
         {"Arctic max pitch scale factor", 1.1697441339492798},
-        {"Arctic moved latitude", 69.11501859456419},
-        {"Arctic moved longitude", -111.76530362546656},
+        {"Arctic moved latitude", 69.11501859456419, throughScreenTolerance},
+        {"Arctic moved longitude", -111.76530362546656, throughScreenTolerance},
         {"Arctic from camera latitude", 69.11501859456419},
         {"Arctic from camera longitude", 170.25},
         {"Arctic from camera zoom", 1.7},
@@ -1476,7 +1486,7 @@ TEST(Transform, MercatorBitIdentity) {
     for (std::size_t i = 0; i < expected.size(); ++i) {
         EXPECT_EQ(expected[i].label, answers[i].label);
         const double tolerance = expected[i].value == 0 ? zeroTolerance
-                                                        : relativeTolerance * std::abs(expected[i].value);
+                                                        : expected[i].relativeTolerance * std::abs(expected[i].value);
         EXPECT_NEAR(expected[i].value, answers[i].value, tolerance) << expected[i].label;
     }
 }
