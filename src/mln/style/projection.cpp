@@ -16,6 +16,11 @@ ProjectionObserver nullObserver;
 void setTypeAndName(Projection& projection, PropertyValue<ProjectionDefinition> type, std::string registeredName) {
     auto impl = projection.mutableImpl();
     impl->type = std::move(type);
+    impl->registeredProjection = registeredName.empty() ? nullptr : getRegisteredProjection(registeredName);
+    if (!registeredName.empty() && !impl->registeredProjection) {
+        Log::Warning(Event::General,
+                     "Unknown projection name \"" + registeredName + "\". Falling back to mercator projection.");
+    }
     impl->registeredName = std::move(registeredName);
     projection.impl = std::move(impl);
     projection.observer->onProjectionChanged(projection);

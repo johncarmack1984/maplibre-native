@@ -223,7 +223,7 @@ OfflineRegionStatus OfflineDownload::getStatus() const {
 
     style::Parser parser;
     parser.parse(*styleResponse->data);
-    const auto styleProjection = makeRegisteredWorldCoordinateHelper(parser.projection.impl->registeredName);
+    const auto& styleProjection = parser.projection.impl->registeredProjection;
 
     result->requiredResourceCountIsPrecise = true;
 
@@ -329,7 +329,7 @@ void OfflineDownload::activateDownload() {
 
         style::Parser parser;
         parser.parse(*styleResponse.data);
-        projection = makeRegisteredWorldCoordinateHelper(parser.projection.impl->registeredName);
+        projection = parser.projection.impl->registeredProjection;
 
         auto tileServerOptions = onlineFileSource.getResourceOptions().tileServerOptions();
         parser.glyphURL = util::mapbox::canonicalizeGlyphURL(tileServerOptions, parser.glyphURL);

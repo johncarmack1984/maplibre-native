@@ -95,8 +95,8 @@ public:
     double getFieldOfView() const;
 
     // Projection
-    /// The projection registered under `name`, see `addProjection`, or Mercator for an empty name.
-    void setRegisteredProjection(const std::string& name);
+    /// Draws in a registered projection, see `addProjection`, or in Mercator for null.
+    void setRegisteredProjection(std::shared_ptr<const CRSWorldCoordinateHelper>);
     void setNorthOrientation(NorthOrientation);
     NorthOrientation getNorthOrientation() const;
 
@@ -131,6 +131,8 @@ public:
 
     // Conversion and projection
     ScreenCoordinate latLngToScreenCoordinate(const LatLng&) const;
+    /// `latLngToScreenCoordinate` for each lat/lng, converted in one batch in a registered projection.
+    std::vector<ScreenCoordinate> latLngsToScreenCoordinates(const std::vector<LatLng>&) const;
     LatLng screenCoordinateToLatLng(const ScreenCoordinate&, LatLng::WrapMode = LatLng::Wrapped) const;
 
     FreeCameraOptions getFreeCameraOptions() const;

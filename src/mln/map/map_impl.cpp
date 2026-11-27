@@ -115,7 +115,7 @@ void Map::Impl::onUpdate() {
     TimePoint timePoint = mode == MapMode::Continuous ? Clock::now() : Clock::time_point::max();
 
     transform.updateTransitions(timePoint);
-    transform.setRegisteredProjection(style->impl->getProjection()->impl->registeredName);
+    transform.setRegisteredProjection(style->impl->getProjection()->impl->registeredProjection);
 
     UpdateParameters params = {.styleLoaded = style->impl->isLoaded(),
                                .mode = mode,
@@ -321,7 +321,7 @@ void Map::Impl::onDidFinishRenderingMap() {
 void Map::Impl::jumpTo(const CameraOptions& camera) {
     cameraMutated = true;
     // The style's projection decides how the camera is constrained, so it has to be in place first.
-    transform.setRegisteredProjection(style->impl->getProjection()->impl->registeredName);
+    transform.setRegisteredProjection(style->impl->getProjection()->impl->registeredProjection);
     transform.jumpTo(camera);
     onUpdate();
 }

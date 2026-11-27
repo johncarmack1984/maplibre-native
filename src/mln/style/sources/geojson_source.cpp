@@ -69,7 +69,7 @@ void GeoJSONSource::setGeoJSONData(std::shared_ptr<GeoJSONData> geoJSONData) {
     observer->onSourceChanged(*this);
 }
 
-void GeoJSONSource::setProjection(std::string projection_) {
+void GeoJSONSource::setProjection(std::shared_ptr<const CRSWorldCoordinateHelper> projection_) {
     projection = std::move(projection_);
     if (pendingGeoJSON) {
         setGeoJSONData(GeoJSONData::create(*pendingGeoJSON, sequencedScheduler, impl().getOptions(), *projection));
@@ -110,7 +110,7 @@ void GeoJSONSource::loadDescription(FileSource& fileSource) {
                 [currentImpl = baseImpl,
                  data = res.data,
                  seqScheduler{sequencedScheduler},
-                 projection_ = projection.value_or(std::string())]() -> Immutable<Source::Impl> {
+                 projection_ = projection.value_or(nullptr)]() -> Immutable<Source::Impl> {
                     assert(data);
                     auto& current = static_cast<const Impl&>(*currentImpl);
                     conversion::Error error;

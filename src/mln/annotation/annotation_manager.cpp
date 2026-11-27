@@ -242,13 +242,11 @@ void AnnotationManager::updateStyle() {
     }
 }
 
-void AnnotationManager::updateData(const WorldCoordinateHelper& helper) {
+void AnnotationManager::updateData(const std::shared_ptr<const CRSWorldCoordinateHelper>& registeredProjection) {
     CHECK_ANNOTATIONS_ENABLED_AND_RETURN_NOARG();
     std::scoped_lock lock(mutex);
-    // Every built-in projection draws annotations as Mercator does.
-    const bool registered = !isMercator(helper);
-    if (projection ? (!registered || projection->name() != helper.name()) : registered) {
-        projection = registered ? makeRegisteredWorldCoordinateHelper(helper.name()) : nullptr;
+    if (projection != registeredProjection) {
+        projection = registeredProjection;
         worldSymbolsValid = false;
         dirty = true;
     }

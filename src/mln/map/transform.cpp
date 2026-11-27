@@ -535,8 +535,8 @@ double Transform::getFieldOfView() const {
 
 // MARK: - Projection
 
-void Transform::setRegisteredProjection(const std::string& name) {
-    state.setRegisteredProjection(name);
+void Transform::setRegisteredProjection(std::shared_ptr<const CRSWorldCoordinateHelper> registered) {
+    state.setRegisteredProjection(std::move(registered));
 }
 
 void Transform::setNorthOrientation(NorthOrientation orientation) {
@@ -733,6 +733,14 @@ ScreenCoordinate Transform::latLngToScreenCoordinate(const LatLng& latLng) const
     ScreenCoordinate point = state.latLngToScreenCoordinate(latLng);
     point.y = state.getSize().height - point.y;
     return point;
+}
+
+std::vector<ScreenCoordinate> Transform::latLngsToScreenCoordinates(const std::vector<LatLng>& latLngs) const {
+    std::vector<ScreenCoordinate> points = state.latLngsToScreenCoordinates(latLngs);
+    for (ScreenCoordinate& point : points) {
+        point.y = state.getSize().height - point.y;
+    }
+    return points;
 }
 
 LatLng Transform::screenCoordinateToLatLng(const ScreenCoordinate& point, LatLng::WrapMode wrapMode) const {

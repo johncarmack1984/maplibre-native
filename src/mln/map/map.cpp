@@ -216,8 +216,7 @@ CameraOptions cameraForLatLngs(const std::vector<LatLng>& latLngs,
     // Calculate the bounds of the possibly rotated shape with respect to the viewport.
     ScreenCoordinate nePixel = {-INFINITY, -INFINITY};
     ScreenCoordinate swPixel = {INFINITY, INFINITY};
-    for (LatLng latLng : latLngs) {
-        ScreenCoordinate pixel = transform.latLngToScreenCoordinate(latLng);
+    for (const ScreenCoordinate& pixel : transform.latLngsToScreenCoordinates(latLngs)) {
         swPixel.x = std::min(swPixel.x, pixel.x);
         nePixel.x = std::max(nePixel.x, pixel.x);
         swPixel.y = std::min(swPixel.y, pixel.y);

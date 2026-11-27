@@ -14,7 +14,7 @@ using namespace mln;
 namespace {
 
 void useProjection(Transform& transform, const std::string& name) {
-    transform.setRegisteredProjection(name);
+    transform.setRegisteredProjection(getRegisteredProjection(name));
 }
 
 } // namespace

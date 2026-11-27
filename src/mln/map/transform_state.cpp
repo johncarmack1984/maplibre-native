@@ -114,20 +114,15 @@ void TransformState::setProperties(const TransformStateProperties& properties) {
 
 // MARK: - Projection
 
-void TransformState::setRegisteredProjection(const std::string& name) {
-    if (name == registeredProjection) {
+void TransformState::setRegisteredProjection(std::shared_ptr<const CRSWorldCoordinateHelper> registered) {
+    if (registered == registeredProjection) {
         return;
     }
     const LatLng center = getLatLng(LatLng::Unwrapped);
-    registeredProjection = name;
+    registeredProjection = std::move(registered);
     std::shared_ptr<const WorldCoordinateHelper> helper = mercatorWorldCoordinateHelper();
-    if (!name.empty()) {
-        if (auto registered = makeRegisteredWorldCoordinateHelper(name)) {
-            helper = std::move(registered);
-        } else {
-            Log::Warning(Event::General,
-                         "Unknown projection name \"" + name + "\". Falling back to mercator projection.");
-        }
+    if (registeredProjection) {
+        helper = registeredProjection;
     }
     projection = std::make_shared<MercatorProjection>(std::move(helper));
     updateCenterWorldBox();
@@ -836,8 +831,35 @@ ScreenCoordinate TransformState::latLngToScreenCoordinate(const LatLng& latLng, 
     if (size.isEmpty()) {
         return {};
     }
+    return projectedToScreenCoordinate(projection->project(latLng, scale), p);
+}
 
-    Point<double> pt = projection->project(latLng, scale) / util::tileSize_D;
+std::vector<ScreenCoordinate> TransformState::latLngsToScreenCoordinates(const std::vector<LatLng>& latLngs) const {
+    std::vector<ScreenCoordinate> screen;
+    screen.reserve(latLngs.size());
+    if (!registeredProjection || size.isEmpty()) {
+        for (const LatLng& latLng : latLngs) {
+            screen.push_back(latLngToScreenCoordinate(latLng));
+        }
+        return screen;
+    }
+    std::vector<std::array<double, 2>> lngLats;
+    lngLats.reserve(latLngs.size());
+    for (const LatLng& latLng : latLngs) {
+        lngLats.push_back({latLng.longitude(), latLng.latitude()});
+    }
+    std::vector<std::array<double, 2>> world(lngLats.size());
+    registeredProjection->worldFromLngLats(lngLats, world);
+    vec4 p;
+    for (const auto& position : world) {
+        screen.push_back(
+            projectedToScreenCoordinate(Point<double>{position[0], position[1]} * Projection::worldSize(scale), p));
+    }
+    return screen;
+}
+
+ScreenCoordinate TransformState::projectedToScreenCoordinate(const Point<double>& projected, vec4& p) const {
+    Point<double> pt = projected / util::tileSize_D;
     vec4 c = {{pt.x, pt.y, 0, 1}};
     matrix::transformMat4(p, c, getCoordMatrix());
     return {p[0] / p[3], size.height - p[1] / p[3]};

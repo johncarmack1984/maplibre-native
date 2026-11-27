@@ -16,6 +16,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace mln {
 
@@ -133,8 +134,12 @@ public:
     void setProperties(const TransformStateProperties& properties);
 
     // Projection
-    /// The projection registered under `name`, see `addProjection`, or Mercator for an empty name.
-    void setRegisteredProjection(const std::string& name);
+    /// Draws in a registered projection, see `addProjection`, or in Mercator for null.
+    void setRegisteredProjection(std::shared_ptr<const CRSWorldCoordinateHelper>);
+    /// The registered projection the map is in, or null.
+    const std::shared_ptr<const CRSWorldCoordinateHelper>& getRegisteredProjection() const {
+        return registeredProjection;
+    }
 
     // Matrix
     void matrixFor(mat4&, const UnwrappedTileID&) const;
@@ -238,6 +243,8 @@ public:
     // Conversion
     ScreenCoordinate latLngToScreenCoordinate(const LatLng&) const;
     ScreenCoordinate latLngToScreenCoordinate(const LatLng&, vec4&) const;
+    /// `latLngToScreenCoordinate` for each lat/lng, converted in one batch in a registered projection.
+    std::vector<ScreenCoordinate> latLngsToScreenCoordinates(const std::vector<LatLng>&) const;
     LatLng screenCoordinateToLatLng(const ScreenCoordinate&, LatLng::WrapMode = LatLng::Unwrapped) const;
     // Implements mapbox-gl-js pointCoordinate() : MercatorCoordinate.
     TileCoordinate screenCoordinateToTileCoordinate(const ScreenCoordinate&, uint8_t atZoom) const;
@@ -315,9 +322,10 @@ private:
     /// Meters per screen pixel at the center, at the current zoom.
     double metersPerPixelAtCenter() const;
 
+    ScreenCoordinate projectedToScreenCoordinate(const Point<double>& projected, vec4&) const;
+
     std::shared_ptr<const ProjectionBase> projection;
-    /// The registered projection the map is in, or empty.
-    std::string registeredProjection;
+    std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection;
     /// Where a projection whose world does not wrap keeps the center, in world units: the max bounds as a rectangle
     /// in its world square, or the whole square.
     std::array<double, 4> centerWorldBox{0, 0, 1, 1};

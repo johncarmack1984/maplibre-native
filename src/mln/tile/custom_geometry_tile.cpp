@@ -1,6 +1,5 @@
 #include <mln/tile/custom_geometry_tile.hpp>
 #include <mln/tile/geojson_tile_data.hpp>
-#include <mln/map/projection_base.hpp>
 #include <mln/map/transform_state.hpp>
 #include <mln/map/world_coordinate_helper.hpp>
 #include <mln/renderer/query.hpp>
@@ -18,15 +17,6 @@
 
 namespace mln {
 
-namespace {
-
-std::shared_ptr<const CRSWorldCoordinateHelper> registeredProjection(const TileParameters& parameters) {
-    const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
-    return isMercator(helper) ? nullptr : makeRegisteredWorldCoordinateHelper(helper.name());
-}
-
-} // namespace
-
 CustomGeometryTile::CustomGeometryTile(const OverscaledTileID& overscaledTileID,
                                        std::string sourceID_,
                                        const TileParameters& parameters,
@@ -36,7 +26,7 @@ CustomGeometryTile::CustomGeometryTile(const OverscaledTileID& overscaledTileID,
     : GeometryTile(overscaledTileID, std::move(sourceID_), parameters, observer_),
       necessity(TileNecessity::Optional),
       options(std::move(options_)),
-      projection(registeredProjection(parameters)),
+      projection(parameters.transformState.getRegisteredProjection()),
       loader(std::move(loader_)),
       mailbox(std::make_shared<Mailbox>(*Scheduler::GetCurrent())),
       actorRef(*this, mailbox) {}

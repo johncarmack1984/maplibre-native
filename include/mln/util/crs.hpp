@@ -21,6 +21,7 @@ struct CRS {
     std::function<void(std::span<const std::array<double, 2>> lngLats, std::span<std::array<double, 2>> positions)>
         forward;
     /// Each CRS position to lng/lat in degrees, NaN where there is no answer. Called from any thread, several at once.
+    /// Both converters are destroyed on whichever thread drops the last reference to the projection.
     std::function<void(std::span<const std::array<double, 2>> positions, std::span<std::array<double, 2>> lngLats)>
         inverse;
     TileMatrixSet tileMatrixSet;

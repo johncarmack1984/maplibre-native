@@ -122,11 +122,10 @@ std::vector<LatLng> latLngBoxSamples(const LatLngBounds&);
 /// rectangle of its corners.
 std::array<double, 4> latLngBoxToWorldBox(const WorldCoordinateHelper&, const LatLngBounds&);
 
-/// The CRS registered under `name`, `identity` included, or null.
-std::shared_ptr<const CRS> getRegisteredProjection(const std::string& name);
-
-/// A helper of its own for the projection registered under `name`, or null when none is (an empty name included).
-std::shared_ptr<const CRSWorldCoordinateHelper> makeRegisteredWorldCoordinateHelper(const std::string& name);
+/// The helper for the projection registered under `name`, `identity` included, or null. A projection has one helper
+/// from `addProjection` on, so its latitude range is found once, and whatever is drawn in it holds that helper: a map
+/// keeps drawing in a removed projection until its projection changes.
+std::shared_ptr<const CRSWorldCoordinateHelper> getRegisteredProjection(const std::string& name);
 
 /// Mercator keeps the formulas each call site had, so its answers stay bit for bit what they were.
 inline bool isMercator(const WorldCoordinateHelper& helper) {

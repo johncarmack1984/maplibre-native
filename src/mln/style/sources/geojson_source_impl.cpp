@@ -108,13 +108,12 @@ T evaluateFeature(const mapbox::feature::feature<double>& f,
 std::shared_ptr<GeoJSONData> GeoJSONData::create(const GeoJSON& geoJSON,
                                                  std::shared_ptr<Scheduler> sequencedScheduler,
                                                  const Immutable<GeoJSONOptions>& options,
-                                                 const std::string& projection) {
-    const auto helper = makeRegisteredWorldCoordinateHelper(projection);
-    const GeoJSON reprojected = helper ? reprojectGeoJSONToWorld(geoJSON, *helper) : GeoJSON{};
-    const GeoJSON& data = helper ? reprojected : geoJSON;
+                                                 std::shared_ptr<const CRSWorldCoordinateHelper> projection) {
+    const GeoJSON reprojected = projection ? reprojectGeoJSONToWorld(geoJSON, *projection) : GeoJSON{};
+    const GeoJSON& data = projection ? reprojected : geoJSON;
     const auto inProjection = [&](GeoJSONData* created) {
-        if (helper) {
-            created->projection = projection;
+        if (projection) {
+            created->projection = projection->name();
         }
         return std::shared_ptr<GeoJSONData>(created);
     };
@@ -147,11 +146,11 @@ std::shared_ptr<GeoJSONData> GeoJSONData::create(const GeoJSON& geoJSON,
                 toReturn[p.first] = evaluateFeature<Value>(*feature, p.second.second, accumulated);
             }
         };
-        if (helper) {
+        if (projection) {
             clusterOptions.coordinates = mapbox::supercluster::Coordinates::UnitSquare;
             clusterOptions.wrap = false;
         }
-        return inProjection(new SuperclusterData(data.get<Features>(), clusterOptions, helper));
+        return inProjection(new SuperclusterData(data.get<Features>(), clusterOptions, projection));
     }
 
     mapbox::geojsonvt::Options vtOptions;
@@ -160,7 +159,7 @@ std::shared_ptr<GeoJSONData> GeoJSONData::create(const GeoJSON& geoJSON,
     vtOptions.buffer = static_cast<uint16_t>(::round(scale * options->buffer));
     vtOptions.tolerance = scale * options->tolerance;
     vtOptions.lineMetrics = options->lineMetrics;
-    if (helper) {
+    if (projection) {
         vtOptions.coordinates = mapbox::geojsonvt::Coordinates::UnitSquare;
         vtOptions.wrap = false;
     }
