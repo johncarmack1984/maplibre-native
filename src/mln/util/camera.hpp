@@ -1,15 +1,16 @@
 #pragma once
 
+#include <mln/util/geo.hpp>
 #include <mln/util/size.hpp>
 #include <mln/util/quaternion.hpp>
 
 #include <optional>
 
 namespace mln {
-
-class LatLng;
-
 namespace util {
+
+/// A free camera's web mercator position as its lat/lng and altitude in meters, at any finite position.
+LatLngAltitude latLngAltitudeFromMercator(const vec3& position);
 
 class Camera {
 public:

@@ -306,6 +306,78 @@ TEST(Map, RegisteredProjectionMetersPerPixelIsItsUnitsAcrossAPixel) {
     removeProjection("test:polar-camera");
 }
 
+TEST(Map, FreeCameraInARegisteredProjectionIsPlacedByItsLatLngAndAltitude) {
+    addProjection(test::polarStereographic("test:polar-free-camera"));
+    {
+        MapTest<> test;
+        test.map.getStyle().loadJSON(
+            R"({"version": 8, "projection": {"type": "test:polar-free-camera"}, "sources": {}, "layers": []})");
+        // GL JS's numbers for the same projection on a 256 by 256 map, from its own
+        // `calculateCameraOptionsFromCameraLngLatAltRotation` and the camera position its camera math reads.
+        constexpr double tolerance = 1e-9;
+        const auto expectNear = [&](const auto& expected, const auto& actual) {
+            for (std::size_t i = 0; i < expected.size(); ++i) {
+                EXPECT_NEAR(expected[i], actual[i], std::max(1.0, std::abs(expected[i])) * tolerance) << i;
+            }
+        };
+
+        test.map.jumpTo(CameraOptions().withBearing(30).withPitch(40));
+        FreeCameraOptions placed;
+        placed.orientation = test.map.getFreeCameraOptions().orientation;
+        placed.setLocation({.location = {75, 20}, .altitude = 600000});
+        test.map.setFreeCameraOptions(placed);
+        const CameraOptions camera = test.map.getCameraOptions();
+        EXPECT_NEAR(73.93194983693965, camera.center->latitude(), tolerance);
+        EXPECT_NEAR(36.69149821787511, camera.center->longitude(), tolerance);
+        EXPECT_NEAR(3.005859525185552, *camera.zoom, tolerance);
+        EXPECT_NEAR(30, *camera.bearing, tolerance);
+        EXPECT_NEAR(40, *camera.pitch, tolerance);
+        const auto location = test.map.getFreeCameraOptions().getLocation();
+        ASSERT_TRUE(location);
+        EXPECT_NEAR(75, location->location.latitude(), tolerance);
+        EXPECT_NEAR(20, location->location.longitude(), tolerance);
+        EXPECT_NEAR(600000, location->altitude, 600000 * tolerance);
+
+        struct View {
+            CameraOptions camera;
+            LatLngAltitude cameraLocation;
+            LatLng centerFromCamera;
+        };
+        const std::array views = {
+            View{
+                .camera = CameraOptions().withCenter(LatLng{75, 20}).withZoom(5).withBearing(30).withPitch(40),
+                .cameraLocation = {.location = {75.05575243852425, 15.550080695737407}, .altitude = 150610.46587273604},
+                .centerFromCamera = {75, 19.999999999999986}},
+            View{.camera = CameraOptions().withCenter(LatLng{88, 100}).withZoom(6).withBearing(-60).withPitch(50),
+                 .cameraLocation = {.location = {87.82528364994329, 81.3686612806135}, .altitude = 63188.59318262557},
+                 .centerFromCamera = {88, 99.99999999999994}},
+            View{.camera = CameraOptions().withCenter(LatLng{90, 0}).withZoom(3).withBearing(0).withPitch(0),
+                 .cameraLocation = {.location = {90, 135}, .altitude = 786432},
+                 .centerFromCamera = {90, 135}},
+        };
+        for (const View& view : views) {
+            test.map.jumpTo(view.camera);
+            const FreeCameraOptions freeCamera = test.map.getFreeCameraOptions();
+            FreeCameraOptions expected;
+            expected.setLocation(view.cameraLocation);
+            expectNear(*expected.position, *freeCamera.position);
+
+            test.map.jumpTo(CameraOptions().withCenter(LatLng{70, -45}).withZoom(2).withBearing(0).withPitch(0));
+            test.map.setFreeCameraOptions(freeCamera);
+            const CameraOptions back = test.map.getCameraOptions();
+            EXPECT_NEAR(view.centerFromCamera.latitude(), back.center->latitude(), tolerance);
+            EXPECT_NEAR(view.centerFromCamera.longitude(), back.center->longitude(), tolerance);
+            EXPECT_NEAR(*view.camera.zoom, *back.zoom, tolerance);
+            EXPECT_NEAR(*view.camera.bearing, *back.bearing, tolerance);
+            EXPECT_NEAR(*view.camera.pitch, *back.pitch, tolerance);
+            const FreeCameraOptions again = test.map.getFreeCameraOptions();
+            expectNear(*freeCamera.position, *again.position);
+            expectNear(*freeCamera.orientation, *again.orientation);
+        }
+    }
+    removeProjection("test:polar-free-camera");
+}
+
 TEST(Map, GeoJSONTiledForAnotherProjectionWarnsOnce) {
     FixtureLog log;
     MapTest<> test;

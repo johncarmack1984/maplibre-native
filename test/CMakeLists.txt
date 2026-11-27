@@ -122,6 +122,7 @@ add_library(
     ${PROJECT_SOURCE_DIR}/test/util/mat3.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/memory.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/merge_lines.test.cpp
+    ${PROJECT_SOURCE_DIR}/test/util/national_grid.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/number_conversions.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/padding.test.cpp
     ${PROJECT_SOURCE_DIR}/test/util/position.test.cpp

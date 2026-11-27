@@ -213,6 +213,16 @@ std::optional<Quaternion> Camera::orientationFromFrame(const vec3& forward, cons
 
     return util::orientationFromRollPitchBearing(roll, pitch, bearing);
 }
+
+LatLngAltitude latLngAltitudeFromMercator(const vec3& position) {
+    const LatLng location = {latFromMercatorY(position[1]), lngFromMercatorX(position[0])};
+
+    const double metersPerPixel = Projection::getMetersPerPixelAtLatitude(location.latitude(), 0.0);
+    const double worldSize = Projection::worldSize(std::pow(2.0, 0.0));
+    const double altitude = position[2] * worldSize * metersPerPixel;
+
+    return {.location = location, .altitude = altitude};
+}
 } // namespace util
 
 void FreeCameraOptions::setLocation(const LatLngAltitude& location) noexcept {
@@ -229,13 +239,7 @@ std::optional<LatLngAltitude> FreeCameraOptions::getLocation() const noexcept {
         return std::nullopt;
     }
 
-    const LatLng location = {util::latFromMercatorY(positionValue[1]), util::lngFromMercatorX(positionValue[0])};
-
-    const double metersPerPixel = Projection::getMetersPerPixelAtLatitude(location.latitude(), 0.0);
-    const double worldSize = Projection::worldSize(std::pow(2.0, 0.0));
-    const double altitude = positionValue[2] * worldSize * metersPerPixel;
-
-    return LatLngAltitude{.location = location, .altitude = altitude};
+    return util::latLngAltitudeFromMercator(positionValue);
 }
 
 void FreeCameraOptions::lookAtPoint(const LatLng& location, const std::optional<vec3>& upVector) noexcept {
