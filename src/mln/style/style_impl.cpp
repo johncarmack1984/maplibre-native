@@ -19,6 +19,7 @@
 #include <mln/style/observer.hpp>
 #include <mln/style/parser.hpp>
 #include <mln/style/source_impl.hpp>
+#include <mln/style/sources/custom_geometry_source.hpp>
 #include <mln/style/sources/geojson_source.hpp>
 #include <mln/style/style_impl.hpp>
 #include <mln/style/transition_options.hpp>
@@ -262,9 +263,7 @@ void Style::Impl::addSource(std::unique_ptr<Source> source) {
 
     source->setObserver(this);
     auto item = sources.add(std::move(source));
-    if (auto* geoJSONSource = item->as<GeoJSONSource>()) {
-        geoJSONSource->setProjection(projection->impl);
-    }
+    setSourceProjection(*item);
     if (fileSource) {
         item->loadDescription(*fileSource);
     }
@@ -539,13 +538,19 @@ void Style::Impl::onLightChanged(const Light&) {
     observer->onUpdate();
 }
 
-void Style::Impl::onProjectionChanged(const Projection& projection_) {
+void Style::Impl::onProjectionChanged(const Projection&) {
     for (const auto& source : sources) {
-        if (auto* geoJSONSource = source->as<GeoJSONSource>()) {
-            geoJSONSource->setProjection(projection_.impl);
-        }
+        setSourceProjection(*source);
     }
     observer->onUpdate();
+}
+
+void Style::Impl::setSourceProjection(Source& source) const {
+    if (auto* geoJSONSource = source.as<GeoJSONSource>()) {
+        geoJSONSource->setProjection(projection->impl);
+    } else if (auto* customGeometrySource = source.as<CustomGeometrySource>()) {
+        customGeometrySource->setProjection(projection->impl);
+    }
 }
 
 void Style::Impl::dumpDebugLogs() const {
