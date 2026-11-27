@@ -27,7 +27,7 @@ cc_library(
     hdrs = ["include/mln/test/national_grid.hpp"],
     strip_include_prefix = "include",
     visibility = [
-        "//platform/glfw:__pkg__",
+        "//platform:__subpackages__",
         "//render-test:__pkg__",
     ],
 )
