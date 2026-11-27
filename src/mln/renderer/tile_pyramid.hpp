@@ -17,7 +17,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 #include <map>
 
@@ -91,8 +90,10 @@ private:
 
     float prevLng = 0;
 
-    /// The source's bounds in the world square of the projection named, kept until either changes.
-    std::optional<std::pair<std::string, LatLngBounds>> boundsWorldBoxKey;
+    /// The projection whose tile grid the tiles are in.
+    std::string projectionName;
+    /// The source's bounds that `boundsWorldBox` holds in that projection's world square.
+    std::optional<LatLngBounds> boundsWorldBoxKey;
     std::array<double, 4> boundsWorldBox{};
 
     bool fadingTiles = false;

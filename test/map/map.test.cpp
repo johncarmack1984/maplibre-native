@@ -306,6 +306,46 @@ TEST(Map, RegisteredProjectionMetersPerPixelIsItsUnitsAcrossAPixel) {
     removeProjection("test:polar-camera");
 }
 
+TEST(Map, TilesLoadAgainWhenTheProjectionChanges) {
+    // As in GL JS, a new projection loads every source's tiles again, since a tile ID names other ground in another
+    // projection's tile grid. Each request's `{bbox}` is in the grid it was made for.
+    MapTest<> test;
+    test.map.getStyle().loadJSON(R"({"version": 8,
+        "sources": {"raster": {"type": "raster", "tiles": ["raster/{z}/{x}/{y}?bbox={bbox}"]},
+                    "vector": {"type": "vector", "tiles": ["vector/{z}/{x}/{y}?bbox={bbox}"]}},
+        "layers": [{"id": "raster", "type": "raster", "source": "raster"},
+                   {"id": "vector", "type": "fill", "source": "vector", "source-layer": "water"}]})");
+    std::vector<std::string> requested;
+    test.fileSource->tileResponse = [&](const Resource& resource) {
+        requested.push_back(resource.url);
+        Response response;
+        response.noContent = true;
+        return response;
+    };
+    const auto render = [&] {
+        requested.clear();
+        test.frontend.render(test.map);
+        return requested;
+    };
+    const std::string mercatorBox =
+        "?bbox=-20037508.342789244,-20037508.342789244,20037508.342789244,20037508.342789244";
+    const auto inMercator = testing::UnorderedElementsAre("raster/0/0/0" + mercatorBox, "vector/0/0/0" + mercatorBox);
+    EXPECT_THAT(render(), inMercator);
+
+    test.map.getStyle().setProjection(std::make_unique<style::Projection>());
+    EXPECT_THAT(render(), testing::IsEmpty());
+
+    auto identity = std::make_unique<style::Projection>();
+    const JSValue identityName("identity");
+    ASSERT_FALSE(identity->setProperty("type", &identityName));
+    test.map.getStyle().setProjection(std::move(identity));
+    EXPECT_THAT(render(),
+                testing::UnorderedElementsAre("raster/0/0/0?bbox=-90,-90,90,90", "vector/0/0/0?bbox=-90,-90,90,90"));
+
+    test.map.getStyle().setProjection(std::make_unique<style::Projection>());
+    EXPECT_THAT(render(), inMercator);
+}
+
 TEST(Map, FreeCameraInARegisteredProjectionIsPlacedByItsLatLngAndAltitude) {
     addProjection(test::polarStereographic("test:polar-free-camera"));
     {
