@@ -101,9 +101,15 @@ void TilePyramid::update(const std::vector<Immutable<style::LayerProperties>>& l
         return;
     }
 
-    handleWrapJump(parameters.transformState.getProjection().worldCoordinateHelper().wraps()
-                       ? static_cast<float>(parameters.transformState.getLatLng().longitude())
-                       : 0.0f);
+    const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
+    // A tile ID names other ground in another projection's tile grid, so a new projection drops every tile.
+    if (helper.name() != projectionName) {
+        projectionName = helper.name();
+        boundsWorldBoxKey.reset();
+        clearAll();
+    }
+
+    handleWrapJump(helper.wraps() ? static_cast<float>(parameters.transformState.getLatLng().longitude()) : 0.0f);
 
     // Optionally shift the zoom level
     double zoom = util::clamp<double>(parameters.transformState.getZoom() + parameters.tileLodZoomShift,
@@ -204,14 +210,12 @@ void TilePyramid::update(const std::vector<Immutable<style::LayerProperties>>& l
         const bool variableZoom = parameters.tileLodMode == TileLodMode::Distance ||
                                   parameters.transformState.isGlobeRendering();
         const int32_t maxZoom = variableZoom ? zoomRange.max : std::min(tileZoom, static_cast<int32_t>(zoomRange.max));
-        const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
         if (helper.wraps()) {
             tileRange = util::TileRange::fromLatLngBounds(*bounds, zoomRange.min, maxZoom);
         } else {
             // The bounds' edges can curve in the projection: as GL JS does, sample them into a box in its world square.
-            if (!boundsWorldBoxKey || boundsWorldBoxKey->first != helper.name() ||
-                boundsWorldBoxKey->second != *bounds) {
-                boundsWorldBoxKey = std::pair(helper.name(), *bounds);
+            if (boundsWorldBoxKey != bounds) {
+                boundsWorldBoxKey = bounds;
                 boundsWorldBox = latLngBoxToWorldBox(helper, *bounds);
             }
             tileRange = util::TileRange::fromWorldBox(boundsWorldBox, zoomRange.min, maxZoom);
