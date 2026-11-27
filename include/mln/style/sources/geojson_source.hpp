@@ -105,7 +105,7 @@ private:
     std::optional<std::string> url;
     /// The projection of the style the source is in, empty until it joins one.
     std::optional<Immutable<Projection::Impl>> projection;
-    std::optional<GeoJSON> pendingGeoJSON;
+    std::unique_ptr<GeoJSON> pendingGeoJSON;
     std::unique_ptr<AsyncRequest> req;
     std::atomic<uint64_t> requestGeneration{0};
     std::shared_ptr<Scheduler> sequencedScheduler;

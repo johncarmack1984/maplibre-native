@@ -49,7 +49,7 @@ void GeoJSONSource::setURL(const std::string& url_) {
 
 void GeoJSONSource::setGeoJSON(const mapbox::geojson::geojson& geoJSON) {
     if (!projection) {
-        pendingGeoJSON = geoJSON;
+        pendingGeoJSON = std::make_unique<GeoJSON>(geoJSON);
         return;
     }
     setGeoJSONData(
@@ -58,7 +58,7 @@ void GeoJSONSource::setGeoJSON(const mapbox::geojson::geojson& geoJSON) {
 
 void GeoJSONSource::setGeoJSON(mapbox::geojson::geojson&& geoJSON) {
     if (!projection) {
-        pendingGeoJSON = std::move(geoJSON);
+        pendingGeoJSON = std::make_unique<GeoJSON>(std::move(geoJSON));
         return;
     }
     setGeoJSONData(
