@@ -30,10 +30,7 @@ public:
                                   std::span<std::array<double, 2>> lngLats) const = 0;
     Point<double> worldFromLatLng(const LatLng&) const;
     LatLng latLngFromWorld(const Point<double>&) const;
-    /// Whether the position has an answer of its own, rather than the nearest one `latLngFromWorld` falls back on.
-    virtual bool hasLatLng(const Point<double>&) const = 0;
     virtual double metersPerWorldUnit(const Point<double>&) const = 0;
-    virtual double worldZFromAltitude(double altitude, const LatLng&) const = 0;
     /// Whether the world repeats east and west: world copies, longitude wrapping and the Mercator latitude limit.
     virtual bool wraps() const = 0;
     virtual const TileMatrixSet& tileMatrixSet() const = 0;
@@ -55,9 +52,7 @@ public:
     /// fallback converts every position that needs it in one batch.
     void lngLatsFromWorld(std::span<const std::array<double, 2>> world,
                           std::span<std::array<double, 2>> lngLats) const override;
-    bool hasLatLng(const Point<double>&) const override;
     double metersPerWorldUnit(const Point<double>&) const override { return extent; }
-    double worldZFromAltitude(double altitude, const LatLng&) const override { return altitude / extent; }
     bool wraps() const override { return false; }
     const TileMatrixSet& tileMatrixSet() const override { return crs->tileMatrixSet; }
 

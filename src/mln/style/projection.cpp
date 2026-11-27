@@ -4,7 +4,6 @@
 #include <mln/style/conversion/property_value.hpp>
 #include <mln/style/conversion_impl.hpp>
 #include <mln/map/world_coordinate_helper.hpp>
-#include <mln/renderer/property_evaluator.hpp>
 #include <mln/util/logging.hpp>
 
 namespace mln {
@@ -63,10 +62,6 @@ Mutable<Projection::Impl> Projection::mutableImpl() const {
     return makeMutable<Impl>(*impl);
 }
 
-ProjectionDefinition Projection::getDefaultType() {
-    return ProjectionDefinition();
-}
-
 PropertyValue<ProjectionDefinition> Projection::getType() const {
     return impl->type;
 }
@@ -106,11 +101,6 @@ StyleProperty Projection::getProperty(const std::string& name) const {
         return conversion::makeStyleProperty(getType());
     }
     return {};
-}
-
-ProjectionDefinition Projection::Impl::evaluate(float zoom) const {
-    const PropertyEvaluationParameters parameters(zoom);
-    return type.evaluate(PropertyEvaluator<ProjectionDefinition>(parameters, Projection::getDefaultType()));
 }
 
 } // namespace style

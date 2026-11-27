@@ -14,6 +14,7 @@ using namespace mln::style;
 using namespace mln::style::conversion;
 
 TEST(StyleConversion, RegisteredProjection) {
+    FixtureLog log;
     Error error;
     auto parseProjection = [&](const std::string& src) {
         return convertJSON<Projection>(src, error);
@@ -24,13 +25,17 @@ TEST(StyleConversion, RegisteredProjection) {
         ASSERT_TRUE(projection) << error.message;
         EXPECT_EQ(name, projection->impl->registeredName);
         EXPECT_TRUE(projection->getType().isUndefined());
-        EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->impl->evaluate(3.f));
         EXPECT_EQ(StyleProperty::Kind::Constant, projection->getProperty("type").getKind());
         EXPECT_EQ(mln::Value(name), projection->getProperty("type").getValue());
 
         projection->setType(ProjectionDefinition(ProjectionType::Mercator));
         EXPECT_TRUE(projection->impl->registeredName.empty());
     }
+    EXPECT_EQ(1u,
+              log.count({EventSeverity::Warning,
+                         Event::General,
+                         -1,
+                         "Unknown projection name \"EPSG:3413\". Falling back to mercator projection."}));
 
     EXPECT_FALSE(parseProjection(R"({"type":"equal-earth"})"));
 }
@@ -54,8 +59,9 @@ TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
         auto projection = parseProjection(R"({"type":["step",["zoom"],"identity",10,"mercator"]})");
         ASSERT_TRUE(projection) << error.message;
         EXPECT_EQ(1u, log.count(warning("identity")));
-        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(5.f));
-        EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->impl->evaluate(10.f));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective),
+                  projection->getType().asExpression().evaluate(5.f));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::Mercator), projection->getType().asExpression().evaluate(10.f));
     }
 
     addProjection(test::polarStereographic("test:in-a-transition"));
@@ -64,7 +70,7 @@ TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
         ASSERT_TRUE(projection) << error.message;
         EXPECT_EQ(1u, log.count(warning("test:in-a-transition")));
         // GL JS's globe takes a transition with a name it does not know as the whole globe.
-        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(3.f));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->getType().asConstant());
     }
     removeProjection("test:in-a-transition");
 
@@ -72,7 +78,7 @@ TEST(StyleConversion, RegisteredProjectionInAnExpressionFallsBackToTheGlobe) {
     {
         auto projection = parseProjection(R"({"type":["mercator","test:not-registered",0.25]})");
         ASSERT_TRUE(projection) << error.message;
-        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->impl->evaluate(3.f));
+        EXPECT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), projection->getType().asConstant());
     }
     EXPECT_EQ(0u, log.uncheckedCount()) << log.unchecked();
 }
@@ -88,21 +94,21 @@ TEST(StyleConversion, Projection) {
         auto projection = parseProjection("{}");
         ASSERT_TRUE(projection);
         ASSERT_TRUE(projection->getType().isUndefined());
-        ASSERT_EQ(ProjectionDefinition("mercator"), projection->impl->evaluate(3.f));
     }
 
     {
         auto projection = parseProjection(R"({"type":"globe"})");
         ASSERT_TRUE(projection);
         ASSERT_TRUE(projection->getType().isConstant());
-        ASSERT_EQ(ProjectionDefinition("globe"), projection->getType().asConstant());
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::Globe), projection->getType().asConstant());
     }
 
     {
         auto projection = parseProjection(R"({"type":["vertical-perspective","mercator",0.25]})");
         ASSERT_TRUE(projection);
         ASSERT_TRUE(projection->getType().isConstant());
-        ASSERT_EQ(ProjectionDefinition("vertical-perspective", "mercator", 0.25), projection->getType().asConstant());
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective, ProjectionType::Mercator, 0.25),
+                  projection->getType().asConstant());
     }
 
     {
@@ -110,11 +116,13 @@ TEST(StyleConversion, Projection) {
             R"({"type":["interpolate",["linear"],["zoom"],10,"vertical-perspective",12,"mercator"]})");
         ASSERT_TRUE(projection);
         ASSERT_TRUE(projection->getType().isExpression());
-        ASSERT_EQ(ProjectionDefinition("vertical-perspective"), projection->impl->evaluate(9.f));
-        ASSERT_EQ(ProjectionDefinition("vertical-perspective"), projection->impl->evaluate(10.f));
-        ASSERT_EQ(ProjectionDefinition("vertical-perspective", "mercator", 0.5), projection->impl->evaluate(11.f));
-        ASSERT_EQ(ProjectionDefinition("mercator"), projection->impl->evaluate(12.f));
-        ASSERT_EQ(ProjectionDefinition("mercator"), projection->impl->evaluate(13.f));
+        const auto type = projection->getType();
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), type.asExpression().evaluate(9.f));
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective), type.asExpression().evaluate(10.f));
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::VerticalPerspective, ProjectionType::Mercator, 0.5),
+                  type.asExpression().evaluate(11.f));
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::Mercator), type.asExpression().evaluate(12.f));
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::Mercator), type.asExpression().evaluate(13.f));
     }
 
     {
@@ -124,10 +132,11 @@ TEST(StyleConversion, Projection) {
             R"(10,["literal",["mercator","vertical-perspective",0.25]]]})");
         ASSERT_TRUE(projection);
         ASSERT_TRUE(projection->getType().isExpression());
-        EXPECT_DOUBLE_EQ(0.25, projection->impl->evaluate(0.f).transitionState());
-        EXPECT_DOUBLE_EQ(0.25, projection->impl->evaluate(2.5f).transitionState());
-        EXPECT_DOUBLE_EQ(0.25, projection->impl->evaluate(5.f).transitionState());
-        EXPECT_DOUBLE_EQ(0.25, projection->impl->evaluate(10.f).transitionState());
+        const auto type = projection->getType();
+        EXPECT_DOUBLE_EQ(0.25, type.asExpression().evaluate(0.f).transitionState());
+        EXPECT_DOUBLE_EQ(0.25, type.asExpression().evaluate(2.5f).transitionState());
+        EXPECT_DOUBLE_EQ(0.25, type.asExpression().evaluate(5.f).transitionState());
+        EXPECT_DOUBLE_EQ(0.25, type.asExpression().evaluate(10.f).transitionState());
     }
 
     {
@@ -136,10 +145,11 @@ TEST(StyleConversion, Projection) {
             R"({"type":["interpolate",["linear"],["zoom"],0,["literal",["vertical-perspective","mercator",0.25]],)"
             R"(10,["literal",["mercator","vertical-perspective",0.25]]]})");
         ASSERT_TRUE(projection);
-        EXPECT_DOUBLE_EQ(0.75, projection->impl->evaluate(0.f).transitionState());
-        EXPECT_DOUBLE_EQ(0.625, projection->impl->evaluate(2.5f).transitionState());
-        EXPECT_DOUBLE_EQ(0.5, projection->impl->evaluate(5.f).transitionState());
-        EXPECT_DOUBLE_EQ(0.25, projection->impl->evaluate(10.f).transitionState());
+        const auto type = projection->getType();
+        EXPECT_DOUBLE_EQ(0.75, type.asExpression().evaluate(0.f).transitionState());
+        EXPECT_DOUBLE_EQ(0.625, type.asExpression().evaluate(2.5f).transitionState());
+        EXPECT_DOUBLE_EQ(0.5, type.asExpression().evaluate(5.f).transitionState());
+        EXPECT_DOUBLE_EQ(0.25, type.asExpression().evaluate(10.f).transitionState());
     }
 
     {
@@ -147,7 +157,7 @@ TEST(StyleConversion, Projection) {
         ASSERT_TRUE(projection);
         const mln::JSValue typeValue("globe");
         ASSERT_FALSE(projection->setProperty("type", &typeValue));
-        ASSERT_EQ(ProjectionDefinition("globe"), projection->getType().asConstant());
+        ASSERT_EQ(ProjectionDefinition(ProjectionType::Globe), projection->getType().asConstant());
         ASSERT_TRUE(projection->setProperty("bogus", &typeValue));
         ASSERT_EQ(StyleProperty::Kind::Constant, projection->getProperty("type").getKind());
         ASSERT_EQ(mln::Value("globe"), projection->getProperty("type").getValue());

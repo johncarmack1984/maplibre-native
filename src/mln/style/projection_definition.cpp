@@ -11,12 +11,6 @@ constexpr std::string_view mercatorName = "mercator";
 constexpr std::string_view verticalPerspectiveName = "vertical-perspective";
 constexpr std::string_view globeName = "globe";
 
-ProjectionType typeFromNameOrMercator(std::string_view name) {
-    const auto type = projectionTypeFromName(name);
-    assert(type);
-    return type.value_or(ProjectionType::Mercator);
-}
-
 } // namespace
 
 std::string_view projectionTypeName(ProjectionType type) {
@@ -75,12 +69,6 @@ ProjectionDefinition::ProjectionDefinition(ProjectionType from_, ProjectionType 
     : from(from_),
       to(to_),
       transition(transition_) {}
-
-ProjectionDefinition::ProjectionDefinition(std::string_view name)
-    : ProjectionDefinition(typeFromNameOrMercator(name)) {}
-
-ProjectionDefinition::ProjectionDefinition(std::string_view from_, std::string_view to_, double transition_)
-    : ProjectionDefinition(typeFromNameOrMercator(from_), typeFromNameOrMercator(to_), transition_) {}
 
 double ProjectionDefinition::transitionState() const {
     const auto isGlobe = [](ProjectionType type) {

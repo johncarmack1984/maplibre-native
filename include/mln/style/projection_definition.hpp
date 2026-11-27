@@ -28,9 +28,6 @@ struct ProjectionDefinition {
     ProjectionDefinition() = default;
     explicit ProjectionDefinition(ProjectionType type);
     ProjectionDefinition(ProjectionType from_, ProjectionType to_, double transition_);
-    /// From a projection name; asserts the name is one of `projectionTypeName`'s.
-    explicit ProjectionDefinition(std::string_view name);
-    ProjectionDefinition(std::string_view from_, std::string_view to_, double transition_);
 
     ProjectionType from = ProjectionType::Mercator;
     ProjectionType to = ProjectionType::Mercator;
