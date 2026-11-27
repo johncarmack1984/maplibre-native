@@ -538,7 +538,7 @@ void OfflineDownload::queueTiles(SourceType type, uint16_t tileSize, const Tiles
                                            tile.z,
                                            tileset.scheme,
                                            Resource::LoadingMethod::All,
-                                           projection ? &projection->tileMatrixSet() : nullptr);
+                                           projection ? projection->tileMatrixSet() : mercatorTileMatrixSet);
 
         tileResource.setPriority(Resource::Priority::Low);
         tileResource.setUsage(Resource::Usage::Offline);

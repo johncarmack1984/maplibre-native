@@ -662,32 +662,12 @@ std::vector<LatLng> Map::latLngsForPixels(const std::vector<ScreenCoordinate>& s
     return ret;
 }
 
-namespace {
-
-/// The great-circle distance between two locations, on the sphere Mercator's scale uses.
-double groundDistance(const LatLng& a, const LatLng& b) {
-    const double latitudeA = util::deg2rad(a.latitude());
-    const double latitudeB = util::deg2rad(b.latitude());
-    const double sinHalfLatitude = std::sin((latitudeB - latitudeA) / 2);
-    const double sinHalfLongitude = std::sin(util::deg2rad(b.longitude() - a.longitude()) / 2);
-    const double h = (sinHalfLatitude * sinHalfLatitude) +
-                     (std::cos(latitudeA) * std::cos(latitudeB) * sinHalfLongitude * sinHalfLongitude);
-    return 2 * util::EARTH_RADIUS_M * std::asin(std::min(1.0, std::sqrt(h)));
+double Map::getMetersPerPixelAt(const LatLng& latLng) const {
+    return impl->transform.getState().getMetersPerPixelAt(latLng);
 }
 
-} // namespace
-
-double Map::getMetersPerPixelAt(const LatLng& latLng) const {
-    const auto& state = impl->transform.getState();
-    const auto& helper = state.getProjection().worldCoordinateHelper();
-    if (isMercator(helper)) {
-        return mln::Projection::getMetersPerPixelAtLatitude(latLng.latitude(), state.getZoom());
-    }
-    const double pixel = 1.0 / mln::Projection::worldSize(state.getScale());
-    const Point<double> world = helper.worldFromLatLng(latLng);
-    return groundDistance(helper.latLngFromWorld({world.x - pixel, world.y}),
-                          helper.latLngFromWorld({world.x + pixel, world.y})) /
-           2;
+std::optional<double> Map::getRegisteredProjectionMetersPerPixel(double zoom) const {
+    return impl->transform.getState().getRegisteredProjectionMetersPerPixel(zoom);
 }
 
 // MARK: - Transform

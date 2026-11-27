@@ -1,6 +1,4 @@
-#include <mapbox/geometry/box.hpp>
 #include <mln/storage/resource.hpp>
-#include <mln/util/constants.hpp>
 #include <mln/util/string.hpp>
 #include <mln/util/token.hpp>
 #include <mln/util/url.hpp>
@@ -21,26 +19,7 @@ std::string getQuadKey(int32_t x, int32_t y, int8_t z) {
     return quadKey;
 }
 
-mapbox::geometry::point<double> getMercCoord(int32_t x, int32_t y, int8_t z) {
-    double resolution = (util::M2PI * util::EARTH_RADIUS_M / 256) / std::pow(2, z);
-    return {
-        x * resolution - util::M2PI * util::EARTH_RADIUS_M / 2,
-        y * resolution - util::M2PI * util::EARTH_RADIUS_M / 2,
-    };
-}
-
-std::string getTileBBox(int32_t x, int32_t y, int8_t z) {
-    // Alter the y for the Google/OSM tile scheme.
-    y = static_cast<int32_t>(std::pow(2, z)) - y - 1;
-
-    auto min = getMercCoord(x * 256, y * 256, z);
-    auto max = getMercCoord((x + 1) * 256, (y + 1) * 256, z);
-
-    return (util::toString(min.x) + "," + util::toString(min.y) + "," + util::toString(max.x) + "," +
-            util::toString(max.y));
-}
-
-// The tile's box in the tile matrix set's units, y up.
+// The box of the tile in row `y` from the top, in the tile matrix set's units, y up.
 std::string getTileBBox(int32_t x, int32_t y, int8_t z, const TileMatrixSet& tileMatrixSet) {
     const double tilesAtZoom = std::pow(2, z);
     const double tileExtent = tileMatrixSet.extentAtZoom0 / tilesAtZoom;
@@ -105,7 +84,7 @@ Resource Resource::tile(const std::string& urlTemplate,
                         int8_t z,
                         Tileset::Scheme scheme,
                         LoadingMethod loadingMethod,
-                        const TileMatrixSet* tileMatrixSet) {
+                        const TileMatrixSet& tileMatrixSet) {
     bool supportsRatio = urlTemplate.find("{ratio}") != std::string::npos;
     // The scheme flips `{y}`, as in GL JS; `{bbox}` is the box of the tile itself.
     const int32_t tileY = y;
@@ -124,10 +103,9 @@ Resource Resource::tile(const std::string& urlTemplate,
                                             } else if (token == "quadkey") {
                                                 return getQuadKey(x, y, z);
                                             } else if (token == "bbox-epsg-3857") {
-                                                return getTileBBox(x, y, z);
+                                                return getTileBBox(x, y, z, mercatorTileMatrixSet);
                                             } else if (token == "bbox") {
-                                                return tileMatrixSet ? getTileBBox(x, tileY, z, *tileMatrixSet)
-                                                                     : getTileBBox(x, tileY, z);
+                                                return getTileBBox(x, tileY, z, tileMatrixSet);
                                             } else if (token == "prefix") {
                                                 return {{
                                                     "0123456789abcdef"[x % 16],

@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <numbers>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -47,12 +46,10 @@ public:
 
     bool wraps() const override { return true; }
 
-    const TileMatrixSet& tileMatrixSet() const override { return tileMatrixSet_; }
+    const TileMatrixSet& tileMatrixSet() const override { return mercatorTileMatrixSet; }
 
 private:
-    static constexpr double halfExtent = std::numbers::pi * util::EARTH_RADIUS_M;
     const std::string name_ = "mercator";
-    const TileMatrixSet tileMatrixSet_{.origin = {-halfExtent, halfExtent}, .extentAtZoom0 = 2 * halfExtent};
 };
 
 // How far `forward` may take an inverse from the position it came from, as a fraction of the zoom 0 extent, for the

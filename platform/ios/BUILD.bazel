@@ -240,6 +240,7 @@ _IOS_APPLICATION_RESOURCES = [
     "app/globe.json",
     "//platform/darwin:app/PluginLayerTestStyle.json",
     "//platform/darwin:test/amsterdam.geojson",
+    "//platform/glfw:assets/arctic.json",
 ] + glob([
     "app/*.lproj/**",
     "app/Assets.xcassets/**",

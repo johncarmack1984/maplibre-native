@@ -15,12 +15,6 @@ inline std::exception_ptr getCantLoadTileError() {
     return std::make_exception_ptr(std::runtime_error("Can't load tile."));
 }
 
-/// The grid `{bbox}` is in: the map projection's, or none for Mercator's EPSG:3857.
-inline const TileMatrixSet* tileMatrixSetFor(const TileParameters& parameters) {
-    const auto& helper = parameters.transformState.getProjection().worldCoordinateHelper();
-    return isMercator(helper) ? nullptr : &helper.tileMatrixSet();
-}
-
 template <typename T>
 TileLoader<T>::TileLoader(T& tile_,
                           const OverscaledTileID& id,
@@ -35,7 +29,7 @@ TileLoader<T>::TileLoader(T& tile_,
                               id.canonical.z,
                               tileset.scheme,
                               Resource::LoadingMethod::CacheOnly,
-                              tileMatrixSetFor(parameters))),
+                              parameters.transformState.getProjection().worldCoordinateHelper().tileMatrixSet())),
       fileSource(parameters.fileSource) {
     assert(!request);
 

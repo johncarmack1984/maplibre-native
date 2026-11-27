@@ -11,6 +11,8 @@
 #include <mln/util/projection.hpp>
 #include <mln/util/tile_coordinate.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <numbers>
 
 using namespace std::numbers;
@@ -41,6 +43,19 @@ double roundForAccuracy(double x) {
     } else {
         return x;
     }
+}
+
+/// How many pixels the scale is measured across, as GL JS's geolocate control measures it to size its accuracy ring.
+constexpr double scaleSpanPixels = 100;
+
+/// GL JS `LngLat.distanceTo`: the great-circle distance by the spherical law of cosines.
+double distance(const LatLng& a, const LatLng& b) {
+    const double latitudeA = util::deg2rad(a.latitude());
+    const double latitudeB = util::deg2rad(b.latitude());
+    const double cosine = (std::sin(latitudeA) * std::sin(latitudeB)) +
+                          (std::cos(latitudeA) * std::cos(latitudeB) *
+                           std::cos(util::deg2rad(b.longitude() - a.longitude())));
+    return VerticalPerspectiveProjection::globeRadiusMeters * std::acos(std::min(cosine, 1.0));
 }
 } // namespace
 
@@ -169,6 +184,24 @@ void TransformState::setRegisteredProjection(std::shared_ptr<const CRSWorldCoord
     updateCenterWorldBox();
     requestMatricesUpdate = true;
     setLatLngZoom(center, getZoom());
+}
+
+double TransformState::getMetersPerPixelAt(const LatLng& latLng) const {
+    const auto& helper = projection->worldCoordinateHelper();
+    if (isMercator(helper)) {
+        return Projection::getMetersPerPixelAtLatitude(latLng.latitude(), getZoom());
+    }
+    const Point<double> world = helper.worldFromLatLng(latLng);
+    const double span = scaleSpanPixels / Projection::worldSize(scale);
+    return distance(latLng, helper.latLngFromWorld({world.x + span, world.y})) / scaleSpanPixels;
+}
+
+std::optional<double> TransformState::getRegisteredProjectionMetersPerPixel(double zoom) const {
+    const auto& helper = projection->worldCoordinateHelper();
+    if (isMercator(helper)) {
+        return std::nullopt;
+    }
+    return helper.tileMatrixSet().extentAtZoom0 / Projection::worldSize(std::pow(2.0, zoom));
 }
 
 void TransformState::updateCenterWorldBox() {
