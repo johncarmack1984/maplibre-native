@@ -11,12 +11,14 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <vector>
 
 namespace mln {
 
 namespace {
 
 using Position = mapbox::geometry::point<double>;
+using Positions = std::vector<Position>;
 using GeoGeometry = mapbox::geometry::geometry<double>;
 using GeoFeature = mapbox::feature::feature<double>;
 using GeoFeatures = mapbox::feature::feature_collection<double>;
@@ -25,8 +27,15 @@ using GeoFeatures = mapbox::feature::feature_collection<double>;
 /// parallel in the projection instead of cutting across it.
 constexpr double parallelStep = 10;
 
-/// Maps the positions of a geometry: points one by one, lines and rings as a whole, which may gain or lose positions.
-template <class Mapping>
+/// How positions are mapped: points one by one, lines and rings as a whole, which may gain or lose positions.
+class Mapping {
+public:
+    virtual ~Mapping() = default;
+    virtual std::optional<Position> position(const Position&) const = 0;
+    virtual Positions line(const Positions&) const = 0;
+};
+
+/// Maps the positions of a geometry.
 struct GeometryMapper {
     const Mapping& mapping;
 
@@ -50,13 +59,15 @@ struct GeometryMapper {
         return result;
     }
 
-    GeoGeometry operator()(const mapbox::geometry::line_string<double>& line) const { return mapping.line(line); }
+    GeoGeometry operator()(const mapbox::geometry::line_string<double>& line) const {
+        return mapbox::geometry::line_string<double>(mapping.line(line));
+    }
 
     GeoGeometry operator()(const mapbox::geometry::multi_line_string<double>& lines) const {
         mapbox::geometry::multi_line_string<double> result;
         result.reserve(lines.size());
         for (const auto& line : lines) {
-            result.push_back(mapping.line(line));
+            result.emplace_back(mapping.line(line));
         }
         return result;
     }
@@ -85,7 +96,7 @@ struct GeometryMapper {
         mapbox::geometry::polygon<double> result;
         result.reserve(polygon.size());
         for (const auto& ring : polygon) {
-            result.push_back(mapping.line(ring));
+            result.emplace_back(mapping.line(ring));
         }
         return result;
     }
@@ -105,22 +116,21 @@ struct GeometryMapper {
 };
 
 /// Lines and rings moved onto the CRS's latitude range, still in lng/lat, and positions that are not lng/lat left out.
-class OntoLatitudeRange {
+class OntoLatitudeRange final : public Mapping {
 public:
     explicit OntoLatitudeRange(const std::array<double, 2>& latitudeRange)
         : south(latitudeRange[0]),
           north(latitudeRange[1]) {}
 
-    std::optional<Position> position(const Position& lngLat) const {
+    std::optional<Position> position(const Position& lngLat) const override {
         if (!std::isfinite(lngLat.x) || !(std::abs(lngLat.y) <= 90)) {
             return std::nullopt;
         }
         return lngLat;
     }
 
-    template <class Line>
-    Line line(const Line& positions) const {
-        Line result;
+    Positions line(const Positions& positions) const override {
+        Positions result;
         result.reserve(positions.size());
         if (std::ranges::all_of(positions,
                                 [&](const Position& lngLat) { return lngLat.y >= south && lngLat.y <= north; })) {
@@ -154,8 +164,7 @@ private:
         return (latitude == south && south > -90) || (latitude == north && north < 90);
     }
 
-    template <class Line>
-    void add(Line& line, const Position& lngLat) const {
+    void add(Positions& line, const Position& lngLat) const {
         if (const auto inRange = position(lngLat)) {
             line.push_back(*inRange);
         }
@@ -166,39 +175,37 @@ private:
 };
 
 /// Positions without a finite place left out.
-struct Finite {
-    static bool isFinite(const Position& point) { return std::isfinite(point.x) && std::isfinite(point.y); }
-
-    std::optional<Position> position(const Position& point) const {
+class Finite final : public Mapping {
+public:
+    std::optional<Position> position(const Position& point) const override {
         return isFinite(point) ? std::optional(point) : std::nullopt;
     }
 
-    template <class Line>
-    Line line(const Line& positions) const {
-        Line result;
+    Positions line(const Positions& positions) const override {
+        Positions result;
         result.reserve(positions.size());
         std::ranges::copy_if(positions, std::back_inserter(result), isFinite);
         return result;
     }
+
+private:
+    static bool isFinite(const Position& point) { return std::isfinite(point.x) && std::isfinite(point.y); }
 };
 
-template <class Fn>
-void forEachPoint(GeoFeatures& features, Fn&& fn) {
+void forEachPoint(GeoFeatures& features, PointBatcher& batcher) {
     for (auto& feature : features) {
-        mapbox::geometry::for_each_point(feature.geometry, fn);
+        mapbox::geometry::for_each_point(feature.geometry, batcher);
     }
 }
 
-template <class Fn>
-void forEachPoint(GeoJSON& geoJSON, Fn&& fn) {
-    geoJSON.match([&](GeoGeometry& geometry) { mapbox::geometry::for_each_point(geometry, fn); },
-                  [&](GeoFeature& feature) { mapbox::geometry::for_each_point(feature.geometry, fn); },
-                  [&](GeoFeatures& features) { forEachPoint(features, fn); });
+void forEachPoint(GeoJSON& geoJSON, PointBatcher& batcher) {
+    geoJSON.match([&](GeoGeometry& geometry) { mapbox::geometry::for_each_point(geometry, batcher); },
+                  [&](GeoFeature& feature) { mapbox::geometry::for_each_point(feature.geometry, batcher); },
+                  [&](GeoFeatures& features) { forEachPoint(features, batcher); });
 }
 
-template <class Mapping>
 GeoJSON mapGeoJSON(const GeoJSON& geoJSON, const Mapping& mapping) {
-    const GeometryMapper<Mapping> mapper{mapping};
+    const GeometryMapper mapper{mapping};
     return geoJSON.match([&](const GeoGeometry& geometry) -> GeoJSON { return GeoGeometry::visit(geometry, mapper); },
                          [&](const GeoFeature& feature) -> GeoJSON { return mapper.feature(feature); },
                          [&](const GeoFeatures& features) -> GeoJSON { return mapper.features(features); });
@@ -209,7 +216,7 @@ GeoJSON mapGeoJSON(const GeoJSON& geoJSON, const Mapping& mapping) {
 GeoJSON reprojectGeoJSONToWorld(const GeoJSON& geoJSON, const CRSWorldCoordinateHelper& helper) {
     GeoJSON world = mapGeoJSON(geoJSON, OntoLatitudeRange(helper.latitudeRange()));
     bool allFinite = true;
-    convertPoints([&](auto&& visit) { forEachPoint(world, visit); },
+    convertPoints([&](PointBatcher& batcher) { forEachPoint(world, batcher); },
                   [&](std::span<const std::array<double, 2>> lngLats, std::span<std::array<double, 2>> positions) {
                       helper.worldFromLngLats(lngLats, positions);
                       allFinite = allFinite &&
@@ -224,7 +231,7 @@ GeoJSON reprojectGeoJSONToWorld(const GeoJSON& geoJSON, const CRSWorldCoordinate
 }
 
 GeoFeatures reprojectFeaturesFromWorld(GeoFeatures features, const WorldCoordinateHelper& helper) {
-    convertPoints([&](auto&& visit) { forEachPoint(features, visit); },
+    convertPoints([&](PointBatcher& batcher) { forEachPoint(features, batcher); },
                   [&](std::span<const std::array<double, 2>> world, std::span<std::array<double, 2>> lngLats) {
                       helper.lngLatsFromWorld(world, lngLats);
                   });

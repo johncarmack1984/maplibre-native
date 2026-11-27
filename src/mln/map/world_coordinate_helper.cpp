@@ -313,6 +313,33 @@ double CRSWorldCoordinateHelper::findLatitudeLimit(const LatLng& center, double 
     return pole;
 }
 
+void PointBatcher::operator()(Point<double>& point) {
+    in.push_back({point.x, point.y});
+    points.push_back(&point);
+    if (in.size() == maxConverterBatch) {
+        flush();
+    }
+}
+
+void PointBatcher::flush() {
+    if (in.empty()) {
+        return;
+    }
+    out.resize(in.size());
+    convert(in, out);
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        *points[i] = {out[i][0], out[i][1]};
+    }
+    in.clear();
+    points.clear();
+}
+
+void convertPoints(const std::function<void(PointBatcher&)>& forEachPoint, const PointsConverter& convert) {
+    PointBatcher batcher(convert);
+    forEachPoint(batcher);
+    batcher.flush();
+}
+
 std::vector<LatLng> latLngBoxSamples(const LatLngBounds& box) {
     std::vector<LatLng> samples;
     samples.reserve((boxSampleSteps + 1) * (boxSampleSteps + 1));
