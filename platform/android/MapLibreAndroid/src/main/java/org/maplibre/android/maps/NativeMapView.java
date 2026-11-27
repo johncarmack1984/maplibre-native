@@ -725,6 +725,14 @@ final class NativeMapView implements NativeMap {
   }
 
   @Override
+  public double getMetersPerPixelAt(@NonNull LatLng latLng) {
+    if (checkState("getMetersPerPixelAt")) {
+      return 0;
+    }
+    return nativeGetMetersPerPixelAt(latLng.getLatitude(), latLng.getLongitude());
+  }
+
+  @Override
   public ProjectedMeters projectedMetersForLatLng(@NonNull LatLng latLng) {
     if (checkState("projectedMetersForLatLng")) {
       return null;
@@ -1698,6 +1706,9 @@ final class NativeMapView implements NativeMap {
 
   @Keep
   private native double nativeGetMetersPerPixelAtLatitude(double lat);
+
+  @Keep
+  private native double nativeGetMetersPerPixelAt(double lat, double lon);
 
   @NonNull
   @Keep

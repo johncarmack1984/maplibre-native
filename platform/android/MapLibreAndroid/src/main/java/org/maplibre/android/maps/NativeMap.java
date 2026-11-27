@@ -231,6 +231,8 @@ interface NativeMap {
 
   double getMetersPerPixelAtLatitude(double lat);
 
+  double getMetersPerPixelAt(@NonNull LatLng latLng);
+
   ProjectedMeters projectedMetersForLatLng(@NonNull LatLng latLng);
 
   LatLng latLngForProjectedMeters(@NonNull ProjectedMeters projectedMeters);
