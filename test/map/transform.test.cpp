@@ -1041,6 +1041,43 @@ TEST(Transform, MinMaxPitch) {
     ASSERT_DOUBLE_EQ(util::deg2rad(45), transform.getState().getMinPitch());
 }
 
+TEST(Transform, FarPlane) {
+    // A perspective matrix's depth row is k times its w row, plus b in its last column: the far plane is b / (1 - k).
+    const auto farPlane = [](const mat4& m) {
+        const double k = m[10] / m[11];
+        const double b = m[14] - k * m[15];
+        return b / (1.0 - k);
+    };
+
+    struct Case {
+        Size size;
+        LatLng center;
+        double zoom;
+        double pitch;
+        double centerAltitude;
+        double farPlane;
+    };
+    // The expected values are maplibre-gl-js's far planes for the same cameras, with native's meters per pixel.
+    const std::vector<Case> cases{
+        // A street at pitch 85, the camera 12.6 m up: the far plane reaches 100 m below the camera.
+        {{400, 600}, {40.7265, -73.99}, 18.5, 85.0, 0.0, 48092.474873440806},
+        // A camera 631 m up keeps the far plane at sea level.
+        {{512, 512}, {46.5, -73.99}, 15.0, 60.0, 0.0, 1835.2785852075117},
+        // Over a center 430 m below sea level, the far plane is at the center.
+        {{512, 512}, {31.5, 35.5}, 12.0, 60.0, -430.0, 1835.2785852075117},
+        // Closer in, the distance to sea level stays at least half the distance to the center.
+        {{512, 512}, {31.5, 35.5}, 16.0, 60.0, -430.0, 2935.7715376034243},
+    };
+    for (const auto& c : cases) {
+        Transform transform;
+        transform.resize(c.size);
+        transform.setMaxPitch(85.0);
+        transform.jumpTo(CameraOptions().withCenter(c.center).withZoom(c.zoom).withPitch(c.pitch).withCenterAltitude(
+            c.centerAltitude));
+        EXPECT_NEAR(c.farPlane, farPlane(transform.getState().getProjectionMatrix()), c.farPlane * 1e-9);
+    }
+}
+
 static const double abs_double_error = 1e-5;
 
 MATCHER_P(Vec3NearEquals1E5, vec, "") {

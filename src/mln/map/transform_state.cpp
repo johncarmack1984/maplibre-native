@@ -135,7 +135,8 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
     const ScreenCoordinate offset = getCenterOffset();
 
     const double limitedPitch = util::clamp(getPitch(), 0.0, maxMercatorHorizonAngle);
-    const double cameraToSeaLevelDistance = cameraToCenterDistance + std::abs(z) / std::cos(limitedPitch);
+    const double cameraToSeaLevelDistance = std::max(cameraToCenterDistance / 2.0,
+                                                     cameraToCenterDistance + z / std::cos(limitedPitch));
 
     // Find the Z distance from the viewport center point
     // [width/2 + offset.x, height/2 + offset.y] to the top edge; to point
@@ -159,8 +160,16 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
                                           : minHorizonAngle;
     const double horizonMultiple = util::clamp(std::tan(fovCenterToHorizon) * std::tan(limitedPitch), 0.0, 0.99);
 
+    // The far plane also reaches down to the lowest of the center, sea level, and 100 m below the camera.
+    constexpr double minRenderDistanceBelowCameraInMeters = 100.0;
+    const double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
+    const double elevation = getCenterAltitude();
+    const double cameraAltitude = std::cos(getPitch()) * cameraToCenterDistance / pixelsPerMeter + elevation;
+    const double minElevation = std::min({elevation, 0.0, cameraAltitude - minRenderDistanceBelowCameraInMeters});
+    const double lowestPlane = cameraToSeaLevelDistance - minElevation * pixelsPerMeter / std::cos(limitedPitch);
+
     // Calculate z distance of the farthest fragment that should be rendered.
-    const double furthestDistance = cameraToSeaLevelDistance / (1 - std::min(tanMultiple, horizonMultiple));
+    const double furthestDistance = lowestPlane / (1 - std::min(tanMultiple, horizonMultiple));
     // Add a bit extra to avoid precision problems when a fragment's distance is exactly `furthestDistance`
     const double farZ = furthestDistance * 1.01;
 
@@ -193,7 +202,6 @@ void TransformState::getProjMatrix(mat4& projMatrix, uint16_t nearZ, bool aligne
         projMatrix[11] = 0.0;
 
         // mat[8], mat[9] control x-skew, y-skew
-        double pixelsPerMeter = 1.0 / Projection::getMetersPerPixelAtLatitude(getLatLng().latitude(), getZoom());
         projMatrix[8] = xSkew * pixelsPerMeter;
         projMatrix[9] = ySkew * pixelsPerMeter;
     }

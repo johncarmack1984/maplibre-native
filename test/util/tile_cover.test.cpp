@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdlib> /* srand, rand */
 #include <ctime>   /* time */
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using namespace mln;
@@ -110,6 +111,20 @@ TEST(TileCover, HighPitch) {
                                              {3, 4, 5},
                                              {3, 5, 4}}),
               util::tileCover(params, 2, zoomRange));
+}
+
+TEST(TileCover, StreetLevelPitch) {
+    Transform transform;
+    transform.resize({400, 600});
+    transform.setMaxPitch(85.0);
+    transform.jumpTo(CameraOptions().withCenter(LatLng{40.7265, -73.99}).withZoom(18.5).withPitch(85.0));
+
+    util::TileCoverParameters params{transform.getState()};
+    params.tileLodMode = TileLodMode::Distance;
+    // maplibre-gl-js covers this view with these tiles toward the horizon.
+    EXPECT_THAT(util::tileCover(params, 18, Range<uint8_t>(0, 22)),
+                ::testing::IsSupersetOf(std::vector<OverscaledTileID>{
+                    {14, 4824, 6158}, {13, 2412, 3078}, {12, 1205, 1539}, {12, 1206, 1538}, {12, 1205, 1538}}));
 }
 
 TEST(TileCover, PitchOverAllowedByContentInsets) {
